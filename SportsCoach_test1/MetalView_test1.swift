@@ -23,7 +23,7 @@ func fillTextureWithPattern(texture: MTLTexture) {
     }
 }
 
-struct MetalKitViewContainer: UIViewRepresentable {
+struct MetalKitView_Test1: UIViewRepresentable {
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
@@ -43,13 +43,13 @@ struct MetalKitViewContainer: UIViewRepresentable {
     }
 
     class Coordinator: NSObject, MTKViewDelegate {
-        var parent: MetalKitViewContainer
+        var parent: MetalKitView_Test1
         var texture: MTLTexture?
         var commandQueue: MTLCommandQueue?
         var pipelineState: MTLRenderPipelineState?
         var samplerState: MTLSamplerState?
 
-        init(_ parent: MetalKitViewContainer) {
+        init(_ parent: MetalKitView_Test1) {
             self.parent = parent
             super.init()
             if let device = MTLCreateSystemDefaultDevice() {
@@ -132,13 +132,5 @@ struct MetalKitViewContainer: UIViewRepresentable {
         func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
             // 当视图大小变化时，这里可以进行相应的处理
         }
-    }
-}
-
-struct ContentView: View {
-    var body: some View {
-        MetalKitViewContainer()
-            .frame(width: 300, height: 300)
-            .edgesIgnoringSafeArea(.all)
     }
 }

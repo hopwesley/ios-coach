@@ -12,7 +12,7 @@
 		69D9CF912C0C1FB90001AE0C /* Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69D9CF902C0C1FB90001AE0C /* Item.swift */; };
 		69D9CF932C0C1FBB0001AE0C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 69D9CF922C0C1FBB0001AE0C /* Assets.xcassets */; };
 		69D9CF962C0C1FBB0001AE0C /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 69D9CF952C0C1FBB0001AE0C /* Preview Assets.xcassets */; };
-		69D9CF9D2C0C202A0001AE0C /* MetalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69D9CF9C2C0C202A0001AE0C /* MetalView.swift */; };
+		69D9CF9D2C0C202A0001AE0C /* MetalView_test1.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69D9CF9C2C0C202A0001AE0C /* MetalView_test1.swift */; };
 		69D9CFA12C0C20490001AE0C /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 69D9CF9F2C0C20490001AE0C /* MetalKit.framework */; };
 		69D9CFA22C0C20490001AE0C /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 69D9CFA02C0C20490001AE0C /* Metal.framework */; };
 		69D9CFA42C0C75290001AE0C /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 69D9CFA32C0C75290001AE0C /* Shaders.metal */; };
@@ -25,7 +25,7 @@
 		69D9CF902C0C1FB90001AE0C /* Item.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Item.swift; sourceTree = "<group>"; };
 		69D9CF922C0C1FBB0001AE0C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		69D9CF952C0C1FBB0001AE0C /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
-		69D9CF9C2C0C202A0001AE0C /* MetalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView.swift; sourceTree = "<group>"; };
+		69D9CF9C2C0C202A0001AE0C /* MetalView_test1.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView_test1.swift; sourceTree = "<group>"; };
 		69D9CF9F2C0C20490001AE0C /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		69D9CFA02C0C20490001AE0C /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		69D9CFA32C0C75290001AE0C /* Shaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Shaders.metal; sourceTree = "<group>"; };
@@ -47,7 +47,9 @@
 		69D9CF802C0C1FB90001AE0C = {
 			isa = PBXGroup;
 			children = (
-				69D9CF8B2C0C1FB90001AE0C /* SportsCoach */,
+				69D9CF8C2C0C1FB90001AE0C /* SportsCoachApp.swift */,
+				69D9CF8E2C0C1FB90001AE0C /* ContentView.swift */,
+				69D9CF8B2C0C1FB90001AE0C /* SportsCoach_test1 */,
 				69D9CF8A2C0C1FB90001AE0C /* Products */,
 				69D9CF9E2C0C20490001AE0C /* Frameworks */,
 			);
@@ -61,18 +63,16 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		69D9CF8B2C0C1FB90001AE0C /* SportsCoach */ = {
+		69D9CF8B2C0C1FB90001AE0C /* SportsCoach_test1 */ = {
 			isa = PBXGroup;
 			children = (
-				69D9CF8C2C0C1FB90001AE0C /* SportsCoachApp.swift */,
-				69D9CF8E2C0C1FB90001AE0C /* ContentView.swift */,
 				69D9CFA32C0C75290001AE0C /* Shaders.metal */,
-				69D9CF9C2C0C202A0001AE0C /* MetalView.swift */,
+				69D9CF9C2C0C202A0001AE0C /* MetalView_test1.swift */,
 				69D9CF902C0C1FB90001AE0C /* Item.swift */,
 				69D9CF922C0C1FBB0001AE0C /* Assets.xcassets */,
 				69D9CF942C0C1FBB0001AE0C /* Preview Content */,
 			);
-			path = SportsCoach;
+			path = SportsCoach_test1;
 			sourceTree = "<group>";
 		};
 		69D9CF942C0C1FBB0001AE0C /* Preview Content */ = {
@@ -162,7 +162,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				69D9CF9D2C0C202A0001AE0C /* MetalView.swift in Sources */,
+				69D9CF9D2C0C202A0001AE0C /* MetalView_test1.swift in Sources */,
 				69D9CF8F2C0C1FB90001AE0C /* ContentView.swift in Sources */,
 				69D9CF912C0C1FB90001AE0C /* Item.swift in Sources */,
 				69D9CF8D2C0C1FB90001AE0C /* SportsCoachApp.swift in Sources */,
@@ -299,7 +299,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"SportsCoach/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = 2XYK8RBB6M;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -329,7 +329,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"SportsCoach/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = 2XYK8RBB6M;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
