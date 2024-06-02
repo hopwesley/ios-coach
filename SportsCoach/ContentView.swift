@@ -11,7 +11,7 @@ func fillTextureWithPattern(texture: MTLTexture) {
     for y in 0..<height {
         for x in 0..<width {
             let index = y * width + x
-            data[index] = UInt8(index % 256)
+            data[index] = UInt8(y % 256)
         }
     }
 
