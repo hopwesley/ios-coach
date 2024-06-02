@@ -15,6 +15,7 @@
 		69D9CF9D2C0C202A0001AE0C /* MetalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69D9CF9C2C0C202A0001AE0C /* MetalView.swift */; };
 		69D9CFA12C0C20490001AE0C /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 69D9CF9F2C0C20490001AE0C /* MetalKit.framework */; };
 		69D9CFA22C0C20490001AE0C /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 69D9CFA02C0C20490001AE0C /* Metal.framework */; };
+		69D9CFA42C0C75290001AE0C /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 69D9CFA32C0C75290001AE0C /* Shaders.metal */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,6 +28,7 @@
 		69D9CF9C2C0C202A0001AE0C /* MetalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView.swift; sourceTree = "<group>"; };
 		69D9CF9F2C0C20490001AE0C /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		69D9CFA02C0C20490001AE0C /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		69D9CFA32C0C75290001AE0C /* Shaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Shaders.metal; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -64,6 +66,7 @@
 			children = (
 				69D9CF8C2C0C1FB90001AE0C /* SportsCoachApp.swift */,
 				69D9CF8E2C0C1FB90001AE0C /* ContentView.swift */,
+				69D9CFA32C0C75290001AE0C /* Shaders.metal */,
 				69D9CF9C2C0C202A0001AE0C /* MetalView.swift */,
 				69D9CF902C0C1FB90001AE0C /* Item.swift */,
 				69D9CF922C0C1FBB0001AE0C /* Assets.xcassets */,
@@ -163,6 +166,7 @@
 				69D9CF8F2C0C1FB90001AE0C /* ContentView.swift in Sources */,
 				69D9CF912C0C1FB90001AE0C /* Item.swift in Sources */,
 				69D9CF8D2C0C1FB90001AE0C /* SportsCoachApp.swift in Sources */,
+				69D9CFA42C0C75290001AE0C /* Shaders.metal in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
