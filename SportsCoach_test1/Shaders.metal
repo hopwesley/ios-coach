@@ -22,3 +22,13 @@ fragment half4 basic_fragment(VertexOut in [[ stage_in ]],
     float gray = inTexture.sample(textureSampler, in.texCoord).r;
     return half4(gray, gray, gray, 1.0);
 }
+
+kernel void add_arrays(device const float* inA,
+                       device const float* inB,
+                       device float* result,
+                       uint index [[thread_position_in_grid]])
+{
+    // the for-loop is replaced with a collection of threads, each of which
+    // calls this function.
+    result[index] = inA[index] + inB[index];
+}

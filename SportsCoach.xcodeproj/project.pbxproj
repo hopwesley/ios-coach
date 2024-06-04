@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		696E04542C0EC08B00DF649D /* spatial_gradient.metal in Sources */ = {isa = PBXBuildFile; fileRef = 696E04532C0EC08B00DF649D /* spatial_gradient.metal */; };
+		696E04572C0EC0CA00DF649D /* MetalView_test2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696E04562C0EC0CA00DF649D /* MetalView_test2.swift */; };
+		696E045B2C0EC44F00DF649D /* MetalView_test2_2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696E045A2C0EC44F00DF649D /* MetalView_test2_2.swift */; };
 		69D9CF8D2C0C1FB90001AE0C /* SportsCoachApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69D9CF8C2C0C1FB90001AE0C /* SportsCoachApp.swift */; };
 		69D9CF8F2C0C1FB90001AE0C /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69D9CF8E2C0C1FB90001AE0C /* ContentView.swift */; };
 		69D9CF912C0C1FB90001AE0C /* Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69D9CF902C0C1FB90001AE0C /* Item.swift */; };
@@ -19,6 +22,9 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		696E04532C0EC08B00DF649D /* spatial_gradient.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = spatial_gradient.metal; sourceTree = "<group>"; };
+		696E04562C0EC0CA00DF649D /* MetalView_test2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView_test2.swift; sourceTree = "<group>"; };
+		696E045A2C0EC44F00DF649D /* MetalView_test2_2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView_test2_2.swift; sourceTree = "<group>"; };
 		69D9CF892C0C1FB90001AE0C /* SportsCoach.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SportsCoach.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		69D9CF8C2C0C1FB90001AE0C /* SportsCoachApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsCoachApp.swift; sourceTree = "<group>"; };
 		69D9CF8E2C0C1FB90001AE0C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -44,9 +50,20 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		696E04552C0EC0AB00DF649D /* test2 */ = {
+			isa = PBXGroup;
+			children = (
+				696E04532C0EC08B00DF649D /* spatial_gradient.metal */,
+				696E04562C0EC0CA00DF649D /* MetalView_test2.swift */,
+				696E045A2C0EC44F00DF649D /* MetalView_test2_2.swift */,
+			);
+			path = test2;
+			sourceTree = "<group>";
+		};
 		69D9CF802C0C1FB90001AE0C = {
 			isa = PBXGroup;
 			children = (
+				696E04552C0EC0AB00DF649D /* test2 */,
 				69D9CF8C2C0C1FB90001AE0C /* SportsCoachApp.swift */,
 				69D9CF8E2C0C1FB90001AE0C /* ContentView.swift */,
 				69D9CF8B2C0C1FB90001AE0C /* SportsCoach_test1 */,
@@ -162,10 +179,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				696E04542C0EC08B00DF649D /* spatial_gradient.metal in Sources */,
 				69D9CF9D2C0C202A0001AE0C /* MetalView_test1.swift in Sources */,
+				696E045B2C0EC44F00DF649D /* MetalView_test2_2.swift in Sources */,
 				69D9CF8F2C0C1FB90001AE0C /* ContentView.swift in Sources */,
 				69D9CF912C0C1FB90001AE0C /* Item.swift in Sources */,
 				69D9CF8D2C0C1FB90001AE0C /* SportsCoachApp.swift in Sources */,
+				696E04572C0EC0CA00DF649D /* MetalView_test2.swift in Sources */,
 				69D9CFA42C0C75290001AE0C /* Shaders.metal in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -303,6 +323,7 @@
 				DEVELOPMENT_TEAM = 2XYK8RBB6M;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "We need access to photos to process videos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -333,6 +354,7 @@
 				DEVELOPMENT_TEAM = 2XYK8RBB6M;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "We need access to photos to process videos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
