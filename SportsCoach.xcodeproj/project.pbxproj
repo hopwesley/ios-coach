@@ -10,6 +10,8 @@
 		696E04542C0EC08B00DF649D /* spatial_gradient.metal in Sources */ = {isa = PBXBuildFile; fileRef = 696E04532C0EC08B00DF649D /* spatial_gradient.metal */; };
 		696E04572C0EC0CA00DF649D /* MetalView_test2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696E04562C0EC0CA00DF649D /* MetalView_test2.swift */; };
 		696E045B2C0EC44F00DF649D /* MetalView_test2_2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696E045A2C0EC44F00DF649D /* MetalView_test2_2.swift */; };
+		69B711A92C10743600C85DFF /* GrayscaleShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 69B711A82C10743600C85DFF /* GrayscaleShader.metal */; };
+		69B711AB2C10746200C85DFF /* MetalView_test2_3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69B711AA2C10746200C85DFF /* MetalView_test2_3.swift */; };
 		69D9CF8D2C0C1FB90001AE0C /* SportsCoachApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69D9CF8C2C0C1FB90001AE0C /* SportsCoachApp.swift */; };
 		69D9CF8F2C0C1FB90001AE0C /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69D9CF8E2C0C1FB90001AE0C /* ContentView.swift */; };
 		69D9CF912C0C1FB90001AE0C /* Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69D9CF902C0C1FB90001AE0C /* Item.swift */; };
@@ -25,6 +27,8 @@
 		696E04532C0EC08B00DF649D /* spatial_gradient.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = spatial_gradient.metal; sourceTree = "<group>"; };
 		696E04562C0EC0CA00DF649D /* MetalView_test2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView_test2.swift; sourceTree = "<group>"; };
 		696E045A2C0EC44F00DF649D /* MetalView_test2_2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView_test2_2.swift; sourceTree = "<group>"; };
+		69B711A82C10743600C85DFF /* GrayscaleShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = GrayscaleShader.metal; sourceTree = "<group>"; };
+		69B711AA2C10746200C85DFF /* MetalView_test2_3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView_test2_3.swift; sourceTree = "<group>"; };
 		69D9CF892C0C1FB90001AE0C /* SportsCoach.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SportsCoach.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		69D9CF8C2C0C1FB90001AE0C /* SportsCoachApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsCoachApp.swift; sourceTree = "<group>"; };
 		69D9CF8E2C0C1FB90001AE0C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -56,6 +60,8 @@
 				696E04532C0EC08B00DF649D /* spatial_gradient.metal */,
 				696E04562C0EC0CA00DF649D /* MetalView_test2.swift */,
 				696E045A2C0EC44F00DF649D /* MetalView_test2_2.swift */,
+				69B711AA2C10746200C85DFF /* MetalView_test2_3.swift */,
+				69B711A82C10743600C85DFF /* GrayscaleShader.metal */,
 			);
 			path = test2;
 			sourceTree = "<group>";
@@ -180,8 +186,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				696E04542C0EC08B00DF649D /* spatial_gradient.metal in Sources */,
+				69B711AB2C10746200C85DFF /* MetalView_test2_3.swift in Sources */,
 				69D9CF9D2C0C202A0001AE0C /* MetalView_test1.swift in Sources */,
 				696E045B2C0EC44F00DF649D /* MetalView_test2_2.swift in Sources */,
+				69B711A92C10743600C85DFF /* GrayscaleShader.metal in Sources */,
 				69D9CF8F2C0C1FB90001AE0C /* ContentView.swift in Sources */,
 				69D9CF912C0C1FB90001AE0C /* Item.swift in Sources */,
 				69D9CF8D2C0C1FB90001AE0C /* SportsCoachApp.swift in Sources */,
@@ -329,7 +337,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -360,7 +368,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
