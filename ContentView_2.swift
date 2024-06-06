@@ -1,7 +1,7 @@
 import SwiftUI
-struct ContentView: View {
+struct ContentView_2: View {
     var body: some View {
-            MetalView_test2_2()
+            MetalView_test2_3()
             .edgesIgnoringSafeArea(.all)
     }
 }

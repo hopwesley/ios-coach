@@ -83,7 +83,7 @@ class VideoProcessingViewModel2: ObservableObject {
                         try fileManager.copyItem(at: url, to: newURL)
                         print("File copied to: \(newURL.path)")
                         
-                       let grayImages =  readAllFramesAndConvertToGray2(url: newURL)
+                       let grayImages =  readAllFramesAndConvertToGray(url: newURL)
                         self.images = grayImages
                         print("image count:---->:",grayImages.count)
                         let endTime = Date()
@@ -124,7 +124,7 @@ class VideoProcessingViewModel2: ObservableObject {
                                                 let ciImage = CIImage(cvImageBuffer: imageBuffer)
                                                 let grayscale = ciImage.applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 0.0])
                                                 
-//                                                print("---------->>>> copy gray scale data......")
+                                                print("---------->>>> copy gray scale data......")
                                                 if let cgImage = self.context.createCGImage(grayscale, from: grayscale.extent) {
                                                         grayImages.append(UIImage(cgImage: cgImage))
                                                 }

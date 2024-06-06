@@ -8,7 +8,11 @@ kernel void grayscaleKernel(texture2d<float, access::read> inTexture [[ texture(
         return;
     }
 
-    float4 color = inTexture.read(gid);
+    // 计算反转的y坐标
+    uint flippedY = inTexture.get_height() - 1 - gid.y;
+
+    // 使用反转的坐标读取颜色
+    float4 color = inTexture.read(uint2(gid.x, flippedY));
     float gray = dot(color.rgb, float3(0.299, 0.587, 0.114));
     outTexture.write(float4(gray, gray, gray, color.a), gid);
 }
