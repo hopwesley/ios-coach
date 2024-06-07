@@ -26,7 +26,7 @@ struct SportsCoachApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView_2()
+                ContentView()
         }
         .modelContainer(sharedModelContainer)
     }

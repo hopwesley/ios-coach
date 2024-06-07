@@ -4,7 +4,7 @@ import MetalKit
 import CoreImage
 
 struct MetalView_test2: View {
-    @StateObject private var viewModel = VideoProcessingViewModel()
+    @StateObject private var viewModel = VideoProcessingViewModel4()
     
     var body: some View {
         VStack {
@@ -22,7 +22,7 @@ struct MetalView_test2: View {
     }
 }
 
-class VideoProcessingViewModel: ObservableObject {
+class VideoProcessingViewModel4: ObservableObject {
     @Published var image: UIImage?
     
     var device: MTLDevice!

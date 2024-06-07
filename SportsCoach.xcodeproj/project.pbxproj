@@ -10,6 +10,7 @@
 		696E04542C0EC08B00DF649D /* spatial_gradient.metal in Sources */ = {isa = PBXBuildFile; fileRef = 696E04532C0EC08B00DF649D /* spatial_gradient.metal */; };
 		696E04572C0EC0CA00DF649D /* MetalView_test2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696E04562C0EC0CA00DF649D /* MetalView_test2.swift */; };
 		696E045B2C0EC44F00DF649D /* MetalView_test2_2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696E045A2C0EC44F00DF649D /* MetalView_test2_2.swift */; };
+		699823012C11AEF900A2B485 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699823002C11AEF900A2B485 /* ContentView.swift */; };
 		69B711A92C10743600C85DFF /* GrayscaleShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 69B711A82C10743600C85DFF /* GrayscaleShader.metal */; };
 		69B711AB2C10746200C85DFF /* MetalView_test2_3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69B711AA2C10746200C85DFF /* MetalView_test2_3.swift */; };
 		69D9CF8D2C0C1FB90001AE0C /* SportsCoachApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69D9CF8C2C0C1FB90001AE0C /* SportsCoachApp.swift */; };
@@ -27,6 +28,7 @@
 		696E04532C0EC08B00DF649D /* spatial_gradient.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = spatial_gradient.metal; sourceTree = "<group>"; };
 		696E04562C0EC0CA00DF649D /* MetalView_test2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView_test2.swift; sourceTree = "<group>"; };
 		696E045A2C0EC44F00DF649D /* MetalView_test2_2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView_test2_2.swift; sourceTree = "<group>"; };
+		699823002C11AEF900A2B485 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		69B711A82C10743600C85DFF /* GrayscaleShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = GrayscaleShader.metal; sourceTree = "<group>"; };
 		69B711AA2C10746200C85DFF /* MetalView_test2_3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView_test2_3.swift; sourceTree = "<group>"; };
 		69D9CF892C0C1FB90001AE0C /* SportsCoach.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SportsCoach.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -69,6 +71,7 @@
 		69D9CF802C0C1FB90001AE0C = {
 			isa = PBXGroup;
 			children = (
+				699823002C11AEF900A2B485 /* ContentView.swift */,
 				696E04552C0EC0AB00DF649D /* test2 */,
 				69D9CF8C2C0C1FB90001AE0C /* SportsCoachApp.swift */,
 				69D9CF8E2C0C1FB90001AE0C /* ContentView_2.swift */,
@@ -186,6 +189,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				696E04542C0EC08B00DF649D /* spatial_gradient.metal in Sources */,
+				699823012C11AEF900A2B485 /* ContentView.swift in Sources */,
 				69B711AB2C10746200C85DFF /* MetalView_test2_3.swift in Sources */,
 				69D9CF9D2C0C202A0001AE0C /* MetalView_test1.swift in Sources */,
 				696E045B2C0EC44F00DF649D /* MetalView_test2_2.swift in Sources */,
