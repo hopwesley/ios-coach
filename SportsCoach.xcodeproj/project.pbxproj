@@ -22,6 +22,7 @@
 		69D9CFA12C0C20490001AE0C /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 69D9CF9F2C0C20490001AE0C /* MetalKit.framework */; };
 		69D9CFA22C0C20490001AE0C /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 69D9CFA02C0C20490001AE0C /* Metal.framework */; };
 		69D9CFA42C0C75290001AE0C /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 69D9CFA32C0C75290001AE0C /* Shaders.metal */; };
+		69DC622D2C12F0C500F07E00 /* utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69DC622C2C12F0C400F07E00 /* utils.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,6 +42,7 @@
 		69D9CF9F2C0C20490001AE0C /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		69D9CFA02C0C20490001AE0C /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		69D9CFA32C0C75290001AE0C /* Shaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Shaders.metal; sourceTree = "<group>"; };
+		69DC622C2C12F0C400F07E00 /* utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = utils.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,11 +61,9 @@
 		696E04552C0EC0AB00DF649D /* test2 */ = {
 			isa = PBXGroup;
 			children = (
-				696E04532C0EC08B00DF649D /* spatial_gradient.metal */,
 				696E04562C0EC0CA00DF649D /* MetalView_test2.swift */,
 				696E045A2C0EC44F00DF649D /* MetalView_test2_2.swift */,
 				69B711AA2C10746200C85DFF /* MetalView_test2_3.swift */,
-				69B711A82C10743600C85DFF /* GrayscaleShader.metal */,
 			);
 			path = test2;
 			sourceTree = "<group>";
@@ -71,6 +71,8 @@
 		69D9CF802C0C1FB90001AE0C = {
 			isa = PBXGroup;
 			children = (
+				69DC622C2C12F0C400F07E00 /* utils.swift */,
+				69DC622B2C12C17800F07E00 /* shader */,
 				699823002C11AEF900A2B485 /* ContentView.swift */,
 				696E04552C0EC0AB00DF649D /* test2 */,
 				69D9CF8C2C0C1FB90001AE0C /* SportsCoachApp.swift */,
@@ -116,6 +118,15 @@
 				69D9CF9F2C0C20490001AE0C /* MetalKit.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		69DC622B2C12C17800F07E00 /* shader */ = {
+			isa = PBXGroup;
+			children = (
+				696E04532C0EC08B00DF649D /* spatial_gradient.metal */,
+				69B711A82C10743600C85DFF /* GrayscaleShader.metal */,
+			);
+			path = shader;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -191,6 +202,7 @@
 				696E04542C0EC08B00DF649D /* spatial_gradient.metal in Sources */,
 				699823012C11AEF900A2B485 /* ContentView.swift in Sources */,
 				69B711AB2C10746200C85DFF /* MetalView_test2_3.swift in Sources */,
+				69DC622D2C12F0C500F07E00 /* utils.swift in Sources */,
 				69D9CF9D2C0C202A0001AE0C /* MetalView_test1.swift in Sources */,
 				696E045B2C0EC44F00DF649D /* MetalView_test2_2.swift in Sources */,
 				69B711A92C10743600C85DFF /* GrayscaleShader.metal in Sources */,

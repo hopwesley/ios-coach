@@ -1,10 +1,12 @@
 import SwiftUI
+import MetalKit
 import AVKit
 import PhotosUI
 
 let constMaxVideoLen = 20.0
 struct ContentView: View {
-        @StateObject private var viewModel = VideoProcessingViewModel()
+        @StateObject private var viewModelVideo1 = VideoProcessingViewModel()
+        @StateObject private var viewModelVideo2 = VideoProcessingViewModel()
         @State private var showImagePicker1 = false
         @State private var showImagePicker2 = false
         var body: some View {
@@ -14,37 +16,31 @@ struct ContentView: View {
                                 Text("统计信息")
                                         .font(.headline)
                                 HStack {
-                                        Text("视频1时长: \(viewModel.video1DurationText)")
+                                        Text("视频1时长: \(viewModelVideo1.videoDurationText)")
                                         Spacer()
-                                        Text("视频2时长: \(viewModel.video2DurationText)")
+                                        Text("视频2时长: \(viewModelVideo2.videoDurationText)")
                                 }
                                 HStack {
-                                        Text("视频1帧数: \(viewModel.video1FrameCount)")
+                                        Text("视频1帧数: \(viewModelVideo1.videoFrameCount)")
                                         Spacer()
-                                        Text("视频2帧数: \(viewModel.video2FrameCount)")
+                                        Text("视频2帧数: \(viewModelVideo2.videoFrameCount)")
                                 }
                                 HStack {
-                                        Text("视频1帧速率: \(viewModel.video1FrameRate)")
+                                        Text("视频1帧速率: \(viewModelVideo1.videoFrameRate)")
                                         Spacer()
-                                        Text("视频2帧速率: \(viewModel.video1FrameRate)")
-                                }
-                                HStack {
-                                        Text("处理进度: \(viewModel.progressText)")
-                                        Spacer()
-                                        Text("运行时间: \(viewModel.elapsedTimeText)")
+                                        Text("视频2帧速率: \(viewModelVideo2.videoFrameRate)")
                                 }
                         }
                         .padding()
                         .border(Color.gray, width: 1)
                         
-                        // 第二行：加载第一个视频
                         VStack {
                                 ZStack {
-                                        if let videoURL = viewModel.video1URL {
+                                        if let videoURL = viewModelVideo1.videoURL {
                                                 VideoPlayer(player: AVPlayer(url: videoURL))
                                                         .frame(height: 200)
                                                 Button(action: {
-                                                        viewModel.removeVideo1()
+                                                        viewModelVideo1.removeVideo()
                                                 }) {
                                                         Image(systemName: "trash")
                                                                 .foregroundColor(.red)
@@ -73,18 +69,18 @@ struct ContentView: View {
                         .sheet(isPresented: $showImagePicker1) {
                                 PHPickerViewController.View(videoPicked: { url in
                                         showImagePicker1 = false
-                                        viewModel.loadVideo(url: url, sourceID: 1)
+                                        viewModelVideo1.prepareVideoForGpu(url: url)
                                 })
                         }
                         
                         // 第三行：加载第二个视频
                         VStack {
                                 ZStack {
-                                        if let videoURL = viewModel.video2URL {
+                                        if let videoURL = viewModelVideo2.videoURL {
                                                 VideoPlayer(player: AVPlayer(url: videoURL))
                                                         .frame(height: 200)
                                                 Button(action: {
-                                                        viewModel.removeVideo2()
+                                                        viewModelVideo2.removeVideo()
                                                 }) {
                                                         Image(systemName: "trash")
                                                                 .foregroundColor(.red)
@@ -113,40 +109,38 @@ struct ContentView: View {
                         .sheet(isPresented: $showImagePicker2) {
                                 PHPickerViewController.View(videoPicked: { url in
                                         showImagePicker2 = false
-                                        viewModel.loadVideo(url: url, sourceID: 2)
+                                        viewModelVideo2.prepareVideoForGpu(url: url)
                                 })
                         }
                         
-                        // 第四行：按钮操作
                         HStack {
                                 Button(action: {
-                                        viewModel.convertToGray()
+                                        viewModelVideo1.convertToGray()
+                                        viewModelVideo2.convertToGray()
                                 }) {
                                         Text("转为灰度")
                                 }
                                 Button(action: {
-                                        viewModel.startAlignment()
+                                        
                                 }) {
                                         Text("开始对齐")
                                 }
                                 Button(action: {
-                                        viewModel.startComparison()
+                                        
                                 }) {
                                         Text("开始对比")
                                 }
                                 Button(action: {
-                                        viewModel.reset()
+                                        
                                 }) {
                                         Text("重新加载")
                                 }
                         }
                         .padding()
                         
-                        // 第五行：处理结果
                         VStack {
                                 Text("处理结果")
                                         .font(.headline)
-                                Text(viewModel.resultText)
                         }
                         .padding()
                         .border(Color.gray, width: 1)
@@ -156,59 +150,87 @@ struct ContentView: View {
 }
 
 class VideoProcessingViewModel: ObservableObject {
-        @Published var video1URL: URL?
-        @Published var video2URL: URL?
-        @Published var video1DurationText: String = "00:00"
-        @Published var video1FrameCount: Int = 0
-        @Published var video1FrameRate: Float = 0.0
-        @Published var video2DurationText: String = "00:00"
-        @Published var video2FrameCount: Int = 0
-        @Published var video2FrameRate: Float = 0.0
-        @Published var progressText: String = "0%"
-        @Published var elapsedTimeText: String = "0s"
-        @Published var resultText: String = ""
+        @Published var videoURL: URL?
+        @Published var videoDurationText: String = "00:00"
+        @Published var videoFrameCount: Int = 0
+        @Published var videoFrameRate: Float = 0.0
+        var videoTextures: [MTLTexture] = []
+        var device: MTLDevice? = MTLCreateSystemDefaultDevice()
         
+        func prepareTextureForVideoFrame(asset:AVAsset,videoTrack:AVAssetTrack) throws{
+                
+                self.videoTextures.removeAll()
+                let trackOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: [
+                        (kCVPixelBufferPixelFormatTypeKey as String): Int(kCVPixelFormatType_32BGRA)
+                ])
+                let reader = try AVAssetReader(asset: asset)
+                reader.add(trackOutput)
+                reader.startReading()
+                var idx = 0
+                while let sampleBuffer = trackOutput.copyNextSampleBuffer()  {
+                        guard let texture = try createTextureFromBuffer(sampleBuffer: sampleBuffer) else{
+                                continue
+                        }
+                        idx+=1
+                        print("------>>>new texture created:", idx)
+                        self.videoTextures.append(texture)
+                }
+        }
         
-        
-        func loadVideo(url: URL, sourceID:Int)  {
+        func prepareVideoForGpu(url: URL)  {
                 Task {
                         do{
                                 let asset = AVAsset(url: url)
-                                //                let duration = CMTimeGetSeconds(asset.duration)
                                 let d = try await asset.load(.duration)
                                 let duration = CMTimeGetSeconds(d)
+                                if duration > constMaxVideoLen {
+                                        print("视频时长不能超过20秒")
+                                        return
+                                }
                                 
                                 
                                 guard let videoTrack = try await asset.loadTracks(withMediaType: .video).first else {
                                         print("No video track found")
                                         return
-                                    }
-                                
-                                if duration > constMaxVideoLen {
-                                        print("视频时长不能超过20秒")
-                                        return
                                 }
+                                
                                 let frameRate =  try await videoTrack.load(.nominalFrameRate)
                                 let timeRange = try await videoTrack.load(.timeRange)
                                 let frameCount = Int(frameRate * Float(timeRange.duration.value) / Float(timeRange.duration.timescale))
-
+                                
                                 DispatchQueue.main.async {
-                                        if (sourceID == 1){
-                                                self.video1URL = url
-                                                self.video1DurationText = self.formatTime(duration)
-                                                self.video1FrameCount = frameCount
-                                                self.video1FrameRate = frameRate
-                                        }else if (sourceID == 2){
-                                                self.video2URL = url
-                                                self.video2DurationText = self.formatTime(duration)
-                                                self.video2FrameCount = frameCount
-                                                self.video2FrameRate = frameRate
-                                        }
+                                        self.videoURL = url
+                                        self.videoDurationText = self.formatTime(duration)
+                                        self.videoFrameCount = frameCount
+                                        self.videoFrameRate = frameRate
                                 }
+                                
+                                try prepareTextureForVideoFrame(asset: asset, videoTrack: videoTrack)
+                                
                         }catch{
                                 print("加载视频时长失败: \(error.localizedDescription)")
                         }
                 }
+        }
+        
+        private func createTextureFromBuffer(sampleBuffer: CMSampleBuffer) throws -> MTLTexture? {
+                guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else{
+                        return nil
+                }
+                
+                let ciImage = CIImage(cvPixelBuffer: imageBuffer)
+                let context = CIContext(mtlDevice: device!)
+                let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: CVPixelBufferGetWidth(imageBuffer), height: CVPixelBufferGetHeight(imageBuffer), mipmapped: false)
+                textureDescriptor.usage = .shaderRead
+                textureDescriptor.storageMode = .private
+                
+                guard let texture = device!.makeTexture(descriptor: textureDescriptor) else {
+                        print("Unable to create texture")
+                        return nil
+                }
+                
+                context.render(ciImage, to: texture, commandBuffer: nil, bounds: ciImage.extent, colorSpace: CGColorSpaceCreateDeviceRGB())
+                return texture
         }
         
         func formatTime(_ seconds: Double) -> String {
@@ -217,77 +239,12 @@ class VideoProcessingViewModel: ObservableObject {
                 return String(format: "%02d:%02d", minutes, seconds)
         }
         
-        func removeVideo1() {
-                video1URL = nil
-        }
-        
-        func removeVideo2() {
-                video2URL = nil
+        func removeVideo() {
+                videoURL = nil
         }
         
         func convertToGray() {
         }
-        
-        func startAlignment() {
-        }
-        
-        func startComparison() {
-        }
-        
         func reset() {
-        }
-}
-
-extension PHPickerViewController {
-        struct View: UIViewControllerRepresentable {
-                var videoPicked: (URL) -> Void
-                
-                class Coordinator: PHPickerViewControllerDelegate {
-                        var parent: View
-                        
-                        init(parent: View) {
-                                self.parent = parent
-                        }
-                        
-                        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
-                                picker.dismiss(animated: true)
-                                guard let provider = results.first?.itemProvider, provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) else { return }
-                                
-                                provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { (url, error) in
-                                        guard let url = url else {
-                                                print("Error loading file representation: \(error?.localizedDescription ?? "Unknown error")")
-                                                return
-                                        }
-                                        let fileManager = FileManager.default
-                                        let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
-                                        let newFileName = UUID().uuidString + ".mp4"
-                                        let newURL = documentsPath.appendingPathComponent(newFileName)
-                                        
-                                        do {
-                                                try fileManager.copyItem(at: url, to: newURL)
-                                                DispatchQueue.main.async {
-                                                        self.parent.videoPicked(newURL)
-                                                }
-                                        } catch {
-                                                print("Error copying file to documents directory: \(error.localizedDescription)")
-                                        }
-                                }
-                        }
-                }
-                
-                func makeCoordinator() -> Coordinator {
-                        return Coordinator(parent: self)
-                }
-                
-                func makeUIViewController(context: Context) -> PHPickerViewController {
-                        var configuration = PHPickerConfiguration()
-                        configuration.filter = .videos
-                        configuration.selectionLimit = 1
-                        let picker = PHPickerViewController(configuration: configuration)
-                        picker.delegate = context.coordinator
-                        return picker
-                }
-                
-                func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
         }
 }
