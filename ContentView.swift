@@ -2,11 +2,11 @@ import SwiftUI
 import AVKit
 import PhotosUI
 
+let constMaxVideoLen = 20.0
 struct ContentView: View {
         @StateObject private var viewModel = VideoProcessingViewModel()
         @State private var showImagePicker1 = false
         @State private var showImagePicker2 = false
-        
         var body: some View {
                 VStack {
                         // 第一行：统计信息
@@ -16,16 +16,17 @@ struct ContentView: View {
                                 HStack {
                                         Text("视频1时长: \(viewModel.video1DurationText)")
                                         Spacer()
-                                        Text("视频1帧数: \(viewModel.video1FrameCount)")
-                                        Spacer()
-                                        Text("视频1名称: \(viewModel.video1Name)")
+                                        Text("视频2时长: \(viewModel.video2DurationText)")
                                 }
                                 HStack {
-                                        Text("视频2时长: \(viewModel.video2DurationText)")
+                                        Text("视频1帧数: \(viewModel.video1FrameCount)")
                                         Spacer()
                                         Text("视频2帧数: \(viewModel.video2FrameCount)")
+                                }
+                                HStack {
+                                        Text("视频1帧速率: \(viewModel.video1FrameRate)")
                                         Spacer()
-                                        Text("视频2名称: \(viewModel.video2Name)")
+                                        Text("视频2帧速率: \(viewModel.video1FrameRate)")
                                 }
                                 HStack {
                                         Text("处理进度: \(viewModel.progressText)")
@@ -61,7 +62,7 @@ struct ContentView: View {
                                                                         .font(.largeTitle)
                                                                         .padding()
                                                         }
-                                                        Text("点击加载视频(最长15s)")
+                                                        Text("点击加载视频(最长20s)")
                                                                 .foregroundColor(.gray)
                                                 }
                                                 .frame(height: 200)
@@ -72,7 +73,7 @@ struct ContentView: View {
                         .sheet(isPresented: $showImagePicker1) {
                                 PHPickerViewController.View(videoPicked: { url in
                                         showImagePicker1 = false
-                                        viewModel.loadVideo1(url: url)
+                                        viewModel.loadVideo(url: url, sourceID: 1)
                                 })
                         }
                         
@@ -101,7 +102,7 @@ struct ContentView: View {
                                                                         .font(.largeTitle)
                                                                         .padding()
                                                         }
-                                                        Text("点击加载视频(最长15s)")
+                                                        Text("点击加载视频(最长20s)")
                                                                 .foregroundColor(.gray)
                                                 }
                                                 .frame(height: 200)
@@ -112,7 +113,7 @@ struct ContentView: View {
                         .sheet(isPresented: $showImagePicker2) {
                                 PHPickerViewController.View(videoPicked: { url in
                                         showImagePicker2 = false
-                                        viewModel.loadVideo2(url: url)
+                                        viewModel.loadVideo(url: url, sourceID: 2)
                                 })
                         }
                         
@@ -159,41 +160,55 @@ class VideoProcessingViewModel: ObservableObject {
         @Published var video2URL: URL?
         @Published var video1DurationText: String = "00:00"
         @Published var video1FrameCount: Int = 0
-        @Published var video1Name: String = ""
+        @Published var video1FrameRate: Float = 0.0
         @Published var video2DurationText: String = "00:00"
         @Published var video2FrameCount: Int = 0
-        @Published var video2Name: String = ""
+        @Published var video2FrameRate: Float = 0.0
         @Published var progressText: String = "0%"
         @Published var elapsedTimeText: String = "0s"
         @Published var resultText: String = ""
         
         
         
-        func loadVideo(url: URL, sourceID:Int) {
-                let asset = AVAsset(url: url)
-                let duration = CMTimeGetSeconds(asset.duration)
-                if duration > 15 {
-                        // 提示用户视频不能超过15秒
-                        print("视频时长不能超过15秒")
-                        return
+        func loadVideo(url: URL, sourceID:Int)  {
+                Task {
+                        do{
+                                let asset = AVAsset(url: url)
+                                //                let duration = CMTimeGetSeconds(asset.duration)
+                                let d = try await asset.load(.duration)
+                                let duration = CMTimeGetSeconds(d)
+                                
+                                
+                                guard let videoTrack = try await asset.loadTracks(withMediaType: .video).first else {
+                                        print("No video track found")
+                                        return
+                                    }
+                                
+                                if duration > constMaxVideoLen {
+                                        print("视频时长不能超过20秒")
+                                        return
+                                }
+                                let frameRate =  try await videoTrack.load(.nominalFrameRate)
+                                let timeRange = try await videoTrack.load(.timeRange)
+                                let frameCount = Int(frameRate * Float(timeRange.duration.value) / Float(timeRange.duration.timescale))
+
+                                DispatchQueue.main.async {
+                                        if (sourceID == 1){
+                                                self.video1URL = url
+                                                self.video1DurationText = self.formatTime(duration)
+                                                self.video1FrameCount = frameCount
+                                                self.video1FrameRate = frameRate
+                                        }else if (sourceID == 2){
+                                                self.video2URL = url
+                                                self.video2DurationText = self.formatTime(duration)
+                                                self.video2FrameCount = frameCount
+                                                self.video2FrameRate = frameRate
+                                        }
+                                }
+                        }catch{
+                                print("加载视频时长失败: \(error.localizedDescription)")
+                        }
                 }
-                if (sourceID == 1){
-                        video1URL = url
-                        video1Name = url.lastPathComponent
-                        video1DurationText = formatTime(duration)
-                }else if (sourceID == 2){
-                        video2URL = url
-                        video2Name = url.lastPathComponent
-                        video2DurationText = formatTime(duration)
-                }
-        }
-        
-        func loadVideo2(url: URL) {
-                
-                loadVideo(url: url, sourceID: 2)
-        }
-        func loadVideo1(url: URL) {
-                loadVideo(url: url, sourceID: 1)
         }
         
         func formatTime(_ seconds: Double) -> String {
