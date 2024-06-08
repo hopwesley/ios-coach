@@ -7,6 +7,7 @@
 
 import PhotosUI
 import SwiftUI
+import MetalKit
 
 extension PHPickerViewController {
         struct View: UIViewControllerRepresentable {
@@ -61,3 +62,32 @@ extension PHPickerViewController {
                 func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
         }
 }
+
+
+
+func textureToImage(texture: MTLTexture) -> UIImage? {
+        guard let ciImage = CIImage(mtlTexture: texture, options: nil) else {
+                print("Unable to create CIImage from texture")
+                return nil
+        }
+        
+        let context = CIContext(options: nil)
+        guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else {
+                print("Unable to create CGImage from CIImage")
+                return nil
+        }
+        
+        return UIImage(cgImage: cgImage)
+}
+
+func getPixelDataFromTexture(texture: MTLTexture) -> [UInt8]? {
+    let width = texture.width
+    let height = texture.height
+    let pixelByteCount = 4 * width * height
+    var rawData = [UInt8](repeating: 0, count: pixelByteCount)
+    let region = MTLRegionMake2D(0, 0, width, height)
+    texture.getBytes(&rawData, bytesPerRow: 4 * width, from: region, mipmapLevel: 0)
+    
+    return rawData
+}
+

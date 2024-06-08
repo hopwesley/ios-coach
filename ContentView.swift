@@ -9,6 +9,10 @@ struct ContentView: View {
         @StateObject private var viewModelVideo2 = VideoProcessingViewModel()
         @State private var showImagePicker1 = false
         @State private var showImagePicker2 = false
+        @State private var grayImg1: UIImage?
+        @State private var grayImg2: UIImage?
+        
+        
         var body: some View {
                 VStack {
                         // 第一行：统计信息
@@ -142,6 +146,45 @@ struct ContentView: View {
                                 Text("处理结果")
                                         .font(.headline)
                         }
+                        VStack {
+                                Button("Convert and Show Image") {
+                                        DispatchQueue.global(qos: .userInitiated).async {
+                                                var image1: UIImage?
+                                                var image2: UIImage?
+                                                print("------>>>video 1 count:",viewModelVideo1.videoGrayTextures.count)
+                                                if let texture1 = viewModelVideo1.videoGrayTextures.first {
+                                                        let arr = getPixelDataFromTexture(texture: texture1)
+                                                        print(arr ?? [])
+                                                        image1 = textureToImage(texture: texture1)
+                                                }
+                                                
+                                                print("------>>>video 2 count:",viewModelVideo2.videoGrayTextures.count)
+                                                if let texture2 = viewModelVideo2.videoGrayTextures.first {
+                                                        image2 = textureToImage(texture: texture2)
+                                                }
+                                                DispatchQueue.main.async {
+                                                        self.grayImg1 = image1
+                                                        self.grayImg2 = image2
+                                                }
+                                        }
+                                }
+                                Text("视频1灰度图：")
+                                if let image1 = grayImg1 {
+                                        Image(uiImage: image1)
+                                                .resizable()
+                                                .frame(width: 300, height: 300)
+                                                .aspectRatio(contentMode: .fit)
+                                }
+                                
+                                Text("视频2灰度图：")
+                                if let image2 = grayImg2 {
+                                        Image(uiImage: image2)
+                                                .resizable()
+                                                .frame(width: 300, height: 300)
+                                                .aspectRatio(contentMode: .fit)
+                                }
+                                
+                        }
                         .padding()
                         .border(Color.gray, width: 1)
                 }
@@ -178,13 +221,17 @@ class VideoProcessingViewModel: ObservableObject {
                 }
         }
         
+        func debugGrayResult(){
+                
+        }
+        
         func convertToGrayTexture() {
                 guard let commandQueue = device!.makeCommandQueue() else { return }
                 let commandBuffer = commandQueue.makeCommandBuffer()
                 let computeEncoder = commandBuffer?.makeComputeCommandEncoder()
                 computeEncoder?.setComputePipelineState(grayscalePipelineState)
                 var idx = 0
-                for texture in videoTextures {
+                for texture in self.videoTextures {
                         if let outputTexture = device!.makeTexture(descriptor: self.textureDesc) {
                                 computeEncoder?.setTexture(texture, index: 0)  // 输入纹理
                                 computeEncoder?.setTexture(outputTexture, index: 1)  // 输出纹理
@@ -196,7 +243,7 @@ class VideoProcessingViewModel: ObservableObject {
                                         depth: 1
                                 )
                                 computeEncoder?.dispatchThreadgroups(threadGroups, threadsPerThreadgroup: threadGroupSize)
-                                videoGrayTextures.append(outputTexture)
+                                self.videoGrayTextures.append(outputTexture)
                                 idx+=1
                                 print("------>>> gray texture created:", idx)
                         }
@@ -204,19 +251,29 @@ class VideoProcessingViewModel: ObservableObject {
                 
                 computeEncoder?.endEncoding()
                 commandBuffer?.commit()
-                //                commandBuffer?.waitUntilCompleted()
-                commandBuffer?.addCompletedHandler { buffer in
-                        print("GPU operations completed")
-                        if buffer.status == .completed {
-                                print("GPU operations completed successfully")
-                        } else if buffer.status == .error {
-                                if let error = buffer.error {
-                                        print("GPU operations failed: \(error.localizedDescription)")
-                                }
-                        }
+                commandBuffer?.waitUntilCompleted()
+                //                commandBuffer?.addCompletedHandler { buffer in
+                //                        print("GPU operations completed")
+                //                        if buffer.status == .completed {
+                //                                print("GPU operations completed successfully")
+                //                        } else if buffer.status == .error {
+                //                                if let error = buffer.error {
+                //                                        print("GPU operations failed: \(error.localizedDescription)")
+                //                                }
+                //                        }
+                //                }
+                //                
+                //                videoTextures = []
+                
+                if let origTxt = self.videoTextures.first{
+                        let arr = getPixelDataFromTexture(texture: origTxt)
+                        print(arr ?? [])
                 }
                 
-                videoTextures = []
+                if let grayTxt = self.videoGrayTextures.first{
+                        let arr = getPixelDataFromTexture(texture: grayTxt)
+                        print(arr ?? [])
+                }
         }
         
         
@@ -238,6 +295,12 @@ class VideoProcessingViewModel: ObservableObject {
                         print("------>>>new texture created:", idx)
                         self.videoTextures.append(texture)
                 }
+                
+                if let origTxt = self.videoTextures.first{
+                        let arr = getPixelDataFromTexture(texture: origTxt)
+                        print(arr ?? [])
+                }
+                
         }
         
         func createTextureDescriptorForVideo() async throws-> MTLTextureDescriptor {
@@ -253,7 +316,8 @@ class VideoProcessingViewModel: ObservableObject {
                         mipmapped: false
                 )
                 textureDescriptor.usage = [.shaderRead, .shaderWrite]
-                textureDescriptor.storageMode = .private
+                //                textureDescriptor.storageMode = .private
+                textureDescriptor.storageMode = .shared
                 
                 return textureDescriptor
         }
@@ -313,7 +377,8 @@ class VideoProcessingViewModel: ObservableObject {
                 let context = CIContext(mtlDevice: device!)
                 let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: CVPixelBufferGetWidth(imageBuffer), height: CVPixelBufferGetHeight(imageBuffer), mipmapped: false)
                 textureDescriptor.usage = .shaderRead
-                textureDescriptor.storageMode = .private
+                //                textureDescriptor.storageMode = .private
+                textureDescriptor.storageMode = .shared
                 
                 guard let texture = device!.makeTexture(descriptor: textureDescriptor) else {
                         print("Unable to create texture")
