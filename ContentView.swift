@@ -153,14 +153,77 @@ class VideoProcessingViewModel: ObservableObject {
         @Published var videoURL: URL?
         @Published var videoDurationText: String = "00:00"
         @Published var videoFrameCount: Int = 0
-        @Published var videoFrameRate: Float = 0.0
+        @Published var videoFrameRate: Int = 0
         var videoTextures: [MTLTexture] = []
+        var videoGrayTextures: [MTLTexture] = []
         var device: MTLDevice? = MTLCreateSystemDefaultDevice()
+        var grayscalePipelineState:MTLComputePipelineState!
+        var videoTrack:AVAssetTrack!
+        var textureDesc:MTLTextureDescriptor!
         
-        func prepareTextureForVideoFrame(asset:AVAsset,videoTrack:AVAssetTrack) throws{
+        init() {
+                device = MTLCreateSystemDefaultDevice()
+                setupGrayscalePipeline()
+        }
+        
+        private func setupGrayscalePipeline() {
+                guard let device = device else { return }
+                
+                do {
+                        let library = try device.makeDefaultLibrary(bundle: Bundle.main)
+                        let kernelFunction = library.makeFunction(name: "grayscaleKernel")
+                        grayscalePipelineState = try device.makeComputePipelineState(function: kernelFunction!)
+                } catch {
+                        print("Failed to create compute pipeline state: \(error)")
+                }
+        }
+        
+        func convertToGrayTexture() {
+                guard let commandQueue = device!.makeCommandQueue() else { return }
+                let commandBuffer = commandQueue.makeCommandBuffer()
+                let computeEncoder = commandBuffer?.makeComputeCommandEncoder()
+                computeEncoder?.setComputePipelineState(grayscalePipelineState)
+                var idx = 0
+                for texture in videoTextures {
+                        if let outputTexture = device!.makeTexture(descriptor: self.textureDesc) {
+                                computeEncoder?.setTexture(texture, index: 0)  // 输入纹理
+                                computeEncoder?.setTexture(outputTexture, index: 1)  // 输出纹理
+                                
+                                let threadGroupSize = MTLSize(width: 8, height: 8, depth: 1)
+                                let threadGroups = MTLSize(
+                                        width: (texture.width + threadGroupSize.width - 1) / threadGroupSize.width,
+                                        height: (texture.height + threadGroupSize.height - 1) / threadGroupSize.height,
+                                        depth: 1
+                                )
+                                computeEncoder?.dispatchThreadgroups(threadGroups, threadsPerThreadgroup: threadGroupSize)
+                                videoGrayTextures.append(outputTexture)
+                                idx+=1
+                                print("------>>> gray texture created:", idx)
+                        }
+                }
+                
+                computeEncoder?.endEncoding()
+                commandBuffer?.commit()
+                //                commandBuffer?.waitUntilCompleted()
+                commandBuffer?.addCompletedHandler { buffer in
+                        print("GPU operations completed")
+                        if buffer.status == .completed {
+                                print("GPU operations completed successfully")
+                        } else if buffer.status == .error {
+                                if let error = buffer.error {
+                                        print("GPU operations failed: \(error.localizedDescription)")
+                                }
+                        }
+                }
+                
+                videoTextures = []
+        }
+        
+        
+        func parseTextFromVideo(asset:AVAsset) throws{
                 
                 self.videoTextures.removeAll()
-                let trackOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: [
+                let trackOutput = AVAssetReaderTrackOutput(track: self.videoTrack, outputSettings: [
                         (kCVPixelBufferPixelFormatTypeKey as String): Int(kCVPixelFormatType_32BGRA)
                 ])
                 let reader = try AVAssetReader(asset: asset)
@@ -177,6 +240,35 @@ class VideoProcessingViewModel: ObservableObject {
                 }
         }
         
+        func createTextureDescriptorForVideo() async throws-> MTLTextureDescriptor {
+                
+                let naturalSize = try await self.videoTrack.load(.naturalSize)
+                let width = Int(naturalSize.width)
+                let height = Int(naturalSize.height)
+                print("------>>>width:",width," height:",height)
+                let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+                        pixelFormat: .rgba8Unorm,
+                        width: width,
+                        height: height,
+                        mipmapped: false
+                )
+                textureDescriptor.usage = [.shaderRead, .shaderWrite]
+                textureDescriptor.storageMode = .private
+                
+                return textureDescriptor
+        }
+        
+        func parseVideoInfo()async throws{
+                let frameRate = try await self.videoTrack.load(.nominalFrameRate)
+                let timeRange = try await self.videoTrack.load(.timeRange)
+                let frameCount = Int(frameRate * Float(timeRange.duration.value) / Float(timeRange.duration.timescale))
+                
+                DispatchQueue.main.async {
+                        self.videoFrameCount = frameCount
+                        self.videoFrameRate = Int(round(frameRate))
+                }
+        }
+        
         func prepareVideoForGpu(url: URL)  {
                 Task {
                         do{
@@ -188,24 +280,23 @@ class VideoProcessingViewModel: ObservableObject {
                                         return
                                 }
                                 
+                                DispatchQueue.main.async {
+                                        self.videoDurationText = self.formatTime(duration)
+                                        self.videoURL = url
+                                }
                                 
                                 guard let videoTrack = try await asset.loadTracks(withMediaType: .video).first else {
                                         print("No video track found")
                                         return
                                 }
                                 
-                                let frameRate =  try await videoTrack.load(.nominalFrameRate)
-                                let timeRange = try await videoTrack.load(.timeRange)
-                                let frameCount = Int(frameRate * Float(timeRange.duration.value) / Float(timeRange.duration.timescale))
+                                self.videoTrack = videoTrack
                                 
-                                DispatchQueue.main.async {
-                                        self.videoURL = url
-                                        self.videoDurationText = self.formatTime(duration)
-                                        self.videoFrameCount = frameCount
-                                        self.videoFrameRate = frameRate
-                                }
+                                self.textureDesc = try await createTextureDescriptorForVideo()
                                 
-                                try prepareTextureForVideoFrame(asset: asset, videoTrack: videoTrack)
+                                try await parseVideoInfo()
+                                
+                                try parseTextFromVideo(asset: asset)
                                 
                         }catch{
                                 print("加载视频时长失败: \(error.localizedDescription)")
@@ -244,6 +335,7 @@ class VideoProcessingViewModel: ObservableObject {
         }
         
         func convertToGray() {
+                convertToGrayTexture()
         }
         func reset() {
         }
