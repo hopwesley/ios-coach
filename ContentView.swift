@@ -4,8 +4,8 @@ import PhotosUI
 
 let constMaxVideoLen = 20.0
 struct ContentView: View {
-        @StateObject private var viewModelVideo1 = VideoProcess()
-        @StateObject private var viewModelVideo2 = VideoProcess()
+        @StateObject private var viewModelVideo1 = GrayConverter()
+        @StateObject private var viewModelVideo2 = GrayConverter()
         @State private var showImagePicker1 = false
         @State private var showImagePicker2 = false
         
