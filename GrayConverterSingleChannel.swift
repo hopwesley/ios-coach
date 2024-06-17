@@ -5,7 +5,7 @@ import CoreImage
 import UIKit
 import MetalKit
 
-class GrayConverter: ObservableObject {
+class GrayConverterSingleChannel: ObservableObject {
         @Published var videoURL: URL?
         @Published var videoDurationText: String = "00:00"
         @Published var videoFrameCount: Int = 0
@@ -20,15 +20,14 @@ class GrayConverter: ObservableObject {
         var videoTrack: AVAssetTrack!
         var device: MTLDevice!
         var commandQueue: MTLCommandQueue!
-        var computePipelineState: MTLComputePipelineState!
-        
+        var grayPipelineState: MTLComputePipelineState!
         init() {
                 device = MTLCreateSystemDefaultDevice()
                 commandQueue = device.makeCommandQueue()
                 
                 let library = device.makeDefaultLibrary()
-                let kernelFunction = library?.makeFunction(name: "grayscaleKernel")
-                computePipelineState = try! device.makeComputePipelineState(function: kernelFunction!)
+                let kernelFunction = library?.makeFunction(name: "grayscaleKernelSingleChannel")
+                grayPipelineState = try! device.makeComputePipelineState(function: kernelFunction!)
         }
         
         func debugGrayResult() {
@@ -49,13 +48,16 @@ class GrayConverter: ObservableObject {
                         print("------>>> read first frame from video failed");
                         return
                 }
+                
                 // 将帧数据转换为灰度图
-                guard let grayImageTexture = convertToGrayscale(device:device, commandQueue:commandQueue, computePipelineState:computePipelineState,from: pixelBuffer) else{
+                guard let grayBuffer = computeGrayscaleAndConvertToImage(device:device, commandQueue:commandQueue, grayPipelineState:grayPipelineState,from: pixelBuffer) else{
                         print("------>>> convertToGrayscale failed");
                         return;
                 }
+                // 保存 grayBuffer 到文件
+                saveGrayBufferToFile(buffer: grayBuffer, width: self.videoWidth, height: self.videoHeight)
                 
-                guard let grayImage =  textureToUIImage(texture: grayImageTexture) else{
+                guard let grayImage =  grayBufferToUIImage(buffer: grayBuffer,width: self.videoWidth,height: self.videoHeight) else{
                         print("------>>> textureToUIImage failed");
                         return
                 }
@@ -98,6 +100,7 @@ class GrayConverter: ObservableObject {
                                 }
                                 
                                 self.videoTrack = videoTrack
+                                
                                 let videoSize = try await videoTrack.load(.naturalSize)
                                 DispatchQueue.main.async {
                                         self.videoWidth = Int(videoSize.width)

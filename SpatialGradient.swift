@@ -18,6 +18,8 @@ class SpatialGradient: ObservableObject {
         @Published var grayscaleImage: UIImage?
         @Published var gradientXImage: UIImage?
         @Published var gradientYImage: UIImage?
+        @Published var videoWidth:Int = 0
+        @Published  var videoHeight:Int = 0
         
         var videoTrack: AVAssetTrack!
         var device: MTLDevice!
@@ -70,6 +72,11 @@ class SpatialGradient: ObservableObject {
                                 }
                                 
                                 self.videoTrack = videoTrack
+                                let videoSize = try await videoTrack.load(.naturalSize)
+                                DispatchQueue.main.async {
+                                        self.videoWidth = Int(videoSize.width)
+                                        self.videoHeight = Int(videoSize.height)
+                                }
                                 
                                 try await parseVideoInfo()
                                 

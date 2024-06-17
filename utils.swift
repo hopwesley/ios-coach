@@ -30,9 +30,9 @@ extension PHPickerViewController {
                                                 return
                                         }
                                         let fileManager = FileManager.default
-                                        let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                                        let tempDirectory = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
                                         let newFileName = UUID().uuidString + ".mp4"
-                                        let newURL = documentsPath.appendingPathComponent(newFileName)
+                                        let newURL = tempDirectory.appendingPathComponent(newFileName)
                                         
                                         do {
                                                 try fileManager.copyItem(at: url, to: newURL)
@@ -40,7 +40,7 @@ extension PHPickerViewController {
                                                         self.parent.videoPicked(newURL)
                                                 }
                                         } catch {
-                                                print("Error copying file to documents directory: \(error.localizedDescription)")
+                                                print("Error copying file to temporary directory: \(error.localizedDescription)")
                                         }
                                 }
                         }
@@ -101,6 +101,43 @@ func extractPixelData(ciImage: CIImage, context: CIContext) -> [UInt8]? {
         bitmapContext.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
         
         return rawData
+}
+
+func textureSignleChannelToUIImage(texture: MTLTexture) -> UIImage? {
+        let width = texture.width
+        let height = texture.height
+        let rowBytes = width * MemoryLayout<UInt8>.size
+        var imageBytes = [UInt8](repeating: 0, count: rowBytes * height)
+        
+        let region = MTLRegionMake2D(0, 0, width, height)
+        texture.getBytes(&imageBytes, bytesPerRow: rowBytes, from: region, mipmapLevel: 0)
+        
+        let colorSpace = CGColorSpaceCreateDeviceGray()
+        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
+        let bitsPerComponent = 8
+        let bitsPerPixel = 8
+        
+        guard let providerRef = CGDataProvider(data: NSData(bytes: &imageBytes, length: imageBytes.count)) else {
+                return nil
+        }
+        
+        guard let cgImage = CGImage(
+                width: width,
+                height: height,
+                bitsPerComponent: bitsPerComponent,
+                bitsPerPixel: bitsPerPixel,
+                bytesPerRow: rowBytes,
+                space: colorSpace,
+                bitmapInfo: bitmapInfo,
+                provider: providerRef,
+                decode: nil,
+                shouldInterpolate: false,
+                intent: .defaultIntent
+        ) else {
+                return nil
+        }
+        
+        return UIImage(cgImage: cgImage)
 }
 
 
@@ -302,4 +339,128 @@ func createTextureFromNormalizedGradient(device: MTLDevice, width: Int, height: 
         texture.replace(region: region, mipmapLevel: 0, withBytes: normalizedGradient, bytesPerRow: bytesPerRow)
         
         return texture
+}
+
+
+func computeGrayscaleAndConvertToImage(device: MTLDevice, commandQueue: MTLCommandQueue,
+                                       grayPipelineState: MTLComputePipelineState,
+                                       from videoFrame: CVPixelBuffer) -> MTLBuffer? {
+        // Create a texture descriptor for the input texture
+        let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: .rgba8Unorm,
+                width: CVPixelBufferGetWidth(videoFrame),
+                height: CVPixelBufferGetHeight(videoFrame),
+                mipmapped: false
+        )
+        textureDescriptor.usage = [.shaderRead, .shaderWrite]
+        guard let inputTexture = device.makeTexture(descriptor: textureDescriptor) else {
+                print("Error: Failed to create input texture")
+                return nil
+        }
+        
+        let ciImage = CIImage(cvPixelBuffer: videoFrame)
+        let context = CIContext(mtlDevice: device)
+        context.render(ciImage, to: inputTexture, commandBuffer: nil, bounds: ciImage.extent, colorSpace: CGColorSpaceCreateDeviceRGB())
+        
+        let width = inputTexture.width
+        let height = inputTexture.height
+        let size = width * height
+        
+        // Create buffer to store grayscale values
+        guard let grayBuffer = device.makeBuffer(length: size * MemoryLayout<UInt8>.size, options: .storageModeShared) else {
+                print("Error: Failed to create gray buffer")
+                return nil
+        }
+        
+        // Create command buffer and compute encoder for grayscale conversion
+        guard let grayCommandBuffer = commandQueue.makeCommandBuffer(),
+              let grayComputeEncoder = grayCommandBuffer.makeComputeCommandEncoder() else {
+                print("Error: Failed to create command buffer or compute encoder")
+                return nil
+        }
+        
+        grayComputeEncoder.setComputePipelineState(grayPipelineState)
+        grayComputeEncoder.setTexture(inputTexture, index: 0)
+        grayComputeEncoder.setBuffer(grayBuffer, offset: 0, index: 0)
+        
+        let threadGroupSize = MTLSizeMake(8, 8, 1)
+        let threadGroups = MTLSizeMake(
+                (width + threadGroupSize.width - 1) / threadGroupSize.width,
+                (height + threadGroupSize.height - 1) / threadGroupSize.height,
+                1
+        )
+        
+        grayComputeEncoder.dispatchThreadgroups(threadGroups, threadsPerThreadgroup: threadGroupSize)
+        grayComputeEncoder.endEncoding()
+        grayCommandBuffer.commit()
+        grayCommandBuffer.waitUntilCompleted()
+        
+        // Convert gray buffer to UIImage
+        return grayBuffer
+}
+
+func grayBufferToUIImage(buffer: MTLBuffer, width: Int, height: Int) -> UIImage? {
+        let data = buffer.contents()
+        let dataLength = width * height
+        let dataPointer = data.bindMemory(to: UInt8.self, capacity: dataLength)
+        
+        let colorSpace = CGColorSpaceCreateDeviceGray()
+        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
+        let bitsPerComponent = 8
+        let bitsPerPixel = 8
+        let bytesPerRow = width
+        
+        guard let providerRef = CGDataProvider(data: NSData(bytes: dataPointer, length: dataLength) as CFData) else {
+                return nil
+        }
+        
+        guard let cgImage = CGImage(
+                width: width,
+                height: height,
+                bitsPerComponent: bitsPerComponent,
+                bitsPerPixel: bitsPerPixel,
+                bytesPerRow: bytesPerRow,
+                space: colorSpace,
+                bitmapInfo: bitmapInfo,
+                provider: providerRef,
+                decode: nil,
+                shouldInterpolate: false,
+                intent: .defaultIntent
+        ) else {
+                return nil
+        }
+        
+        return UIImage(cgImage: cgImage)
+}
+
+func saveGrayBufferToFile(buffer: MTLBuffer, width: Int, height: Int) {
+        let data = buffer.contents()
+        let dataLength = width * height
+        let dataPointer = data.bindMemory(to: UInt8.self, capacity: dataLength)
+        
+        // 将一维数组转换为二维数组
+        var grayValues = [[UInt8]](repeating: [UInt8](repeating: 0, count: width), count: height)
+        for y in 0..<height {
+                for x in 0..<width {
+                        grayValues[y][x] = dataPointer[y * width + x]
+                }
+        }
+        
+        // 将二维数组转换为 JSON 数据
+        guard let jsonData = try? JSONEncoder().encode(grayValues) else {
+                print("Error encoding gray buffer to JSON")
+                return
+        }
+        
+        // 将 JSON 数据保存到文件
+        let fileName = "grayBuffer.json"
+        if let documentDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+                let fileURL = documentDirectory.appendingPathComponent(fileName)
+                do {
+                        try jsonData.write(to: fileURL, options: .atomic)
+                        print("Gray buffer saved to file: \(fileURL)")
+                } catch {
+                        print("Error saving gray buffer to file: \(error)")
+                }
+        }
 }

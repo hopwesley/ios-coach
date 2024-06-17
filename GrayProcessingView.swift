@@ -8,7 +8,8 @@
 import SwiftUI
 
 struct GrayProcessingView: View {
-        @ObservedObject var viewModel: GrayConverter
+//        @ObservedObject var viewModel: GrayConverter
+        @ObservedObject var viewModel: GrayConverterSingleChannel
         @State private var showImagePicker = false
         
         var body: some View {

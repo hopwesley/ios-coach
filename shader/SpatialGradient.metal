@@ -55,3 +55,4 @@ kernel void sobelGradientKernel(texture2d<float, access::read> inTexture [[textu
     outGradientX[gid.y * inTexture.get_width() + gid.x] = gradientX;
     outGradientY[gid.y * inTexture.get_width() + gid.x] = gradientY;
 }
+
