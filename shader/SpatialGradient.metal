@@ -1,7 +1,7 @@
 #include <metal_stdlib>
 using namespace metal;
 
-kernel void spatial_gradient(texture2d<float, access::read> inTexture [[texture(0)]],
+kernel void spatialGradientKernel(texture2d<float, access::read> inTexture [[texture(0)]],
                              device float *outGradientX [[buffer(0)]],
                              device float *outGradientY [[buffer(1)]],
                              uint2 gid [[thread_position_in_grid]]) {
