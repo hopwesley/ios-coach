@@ -136,7 +136,7 @@ func textureToUIImage(texture: MTLTexture) -> UIImage? {
         return UIImage(cgImage: cgImage!)
 }
 
-func convertToGrayscale(device: MTLDevice,commandQueue:MTLCommandQueue,
+func convertToGrayscale(device: MTLDevice, commandQueue:MTLCommandQueue,
                         computePipelineState:MTLComputePipelineState,
                         from videoFrame: CVPixelBuffer) -> MTLTexture? {
         // Create a texture descriptor for the input texture
@@ -192,4 +192,51 @@ func formatTime(_ seconds: Double) -> String {
         let minutes = Int(seconds) / 60
         let seconds = Int(seconds) % 60
         return String(format: "%02d:%02d", minutes, seconds)
+}
+
+
+func computeSpatialGradient(device: MTLDevice, commandQueue:MTLCommandQueue,
+                            gradientPipelineState:MTLComputePipelineState,
+                            for grayTexture: MTLTexture) -> ([Float], [Float])? {
+        guard let commandBuffer = commandQueue.makeCommandBuffer() else {
+                print("Failed to create command buffer.")
+                return nil
+        }
+        guard let computeEncoder = commandBuffer.makeComputeCommandEncoder() else {
+                print("Failed to create compute encoder.")
+                return nil
+        }
+        
+        let width = grayTexture.width
+        let height = grayTexture.height
+        let size = width * height
+        
+        let gradientXBuffer = device.makeBuffer(length: size * MemoryLayout<Float>.size, options: .storageModeShared)!
+        let gradientYBuffer = device.makeBuffer(length: size * MemoryLayout<Float>.size, options: .storageModeShared)!
+        
+        computeEncoder.setComputePipelineState(gradientPipelineState)
+        computeEncoder.setTexture(grayTexture, index: 0)
+        computeEncoder.setBuffer(gradientXBuffer, offset: 0, index: 0)
+        computeEncoder.setBuffer(gradientYBuffer, offset: 0, index: 1)
+        
+        let threadGroupSize = MTLSizeMake(8, 8, 1)
+        let threadGroups = MTLSizeMake(
+                (width + threadGroupSize.width - 1) / threadGroupSize.width,
+                (height + threadGroupSize.height - 1) / threadGroupSize.height,
+                1
+        )
+        
+        computeEncoder.dispatchThreadgroups(threadGroups, threadsPerThreadgroup: threadGroupSize)
+        computeEncoder.endEncoding()
+        
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        
+        let gradientXPointer = gradientXBuffer.contents().bindMemory(to: Float.self, capacity: size)
+        let gradientYPointer = gradientYBuffer.contents().bindMemory(to: Float.self, capacity: size)
+        
+        let gradientXArray = Array(UnsafeBufferPointer(start: gradientXPointer, count: size))
+        let gradientYArray = Array(UnsafeBufferPointer(start: gradientYPointer, count: size))
+        
+        return (gradientXArray, gradientYArray)
 }

@@ -71,10 +71,50 @@ class SpatialGradient: ObservableObject {
                                 
                                 try await parseVideoInfo()
                                 
+                                try spatialFirstFrame(asset: asset)
+                                
                         } catch {
                                 print("加载视频时长失败: \(error.localizedDescription)")
                         }
                 }
+        }
+        
+        func spatialFirstFrame(asset: AVAsset) throws{
+                
+                let trackOutput = AVAssetReaderTrackOutput(track: self.videoTrack, outputSettings: [
+                        (kCVPixelBufferPixelFormatTypeKey as String): Int(kCVPixelFormatType_32BGRA)
+                ])
+                let reader = try AVAssetReader(asset: asset)
+                reader.add(trackOutput)
+                reader.startReading()
+                
+                // 读取视频的第一个帧数据
+                guard let sampleBuffer = trackOutput.copyNextSampleBuffer(),
+                      let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else{
+                        print("------>>> read first frame from video failed")
+                        return
+                }
+                // 将帧数据转换为灰度图
+                guard let grayImageTexture = convertToGrayscale(device:device, commandQueue:commandQueue, computePipelineState:grayPipelineState,from: pixelBuffer) else{
+                        print("------>>> convertToGrayscale failed");
+                        return;
+                }
+                
+                guard let grayImage =  textureToUIImage(texture: grayImageTexture) else{
+                        print("------>>> textureToUIImage failed");
+                        return
+                }
+                
+                DispatchQueue.main.async {
+                        self.grayscaleImage = grayImage
+                }
+                
+                guard let (gradientX, gradientY) = computeSpatialGradient(device:device,commandQueue: commandQueue,gradientPipelineState:spatialPipelineState, for: grayImageTexture)else{
+                        print("------>>> computeSpatialGradient failed");
+                        return;
+                }
+                print("Gradient X: \(gradientX)")
+                print("Gradient Y: \(gradientY)")
         }
         
         func removeVideo() {
