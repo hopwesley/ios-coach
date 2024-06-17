@@ -8,8 +8,6 @@ struct ContentView: View {
     @StateObject private var viewModelVideo2 = VideoProcess()
     @State private var showImagePicker1 = false
     @State private var showImagePicker2 = false
-    @State private var grayImg1: UIImage?
-    @State private var grayImg2: UIImage?
     
     var body: some View {
         ScrollView { // 添加 ScrollView
@@ -145,29 +143,8 @@ struct ContentView: View {
                         .font(.headline)
                 }
                 VStack {
-                    Button("Convert and Show Image") {
-                        DispatchQueue.global(qos: .userInitiated).async {
-                            var image1: UIImage?
-                            var image2: UIImage?
-                            print("------>>>video 1 count:",viewModelVideo1.videoGrayTextures.count)
-                            if let texture1 = viewModelVideo1.videoGrayTextures.first {
-                                let arr = getPixelDataFromTexture(texture: texture1)
-                                print(arr ?? [])
-                                image1 = textureToImage(texture: texture1)
-                            }
-                            
-                            print("------>>>video 2 count:",viewModelVideo2.videoGrayTextures.count)
-                            if let texture2 = viewModelVideo2.videoGrayTextures.first {
-                                image2 = textureToImage(texture: texture2)
-                            }
-                            DispatchQueue.main.async {
-                                self.grayImg1 = image1
-                                self.grayImg2 = image2
-                            }
-                        }
-                    }
                     Text("视频1灰度图：")
-                    if let image1 = grayImg1 {
+                    if let image1 = viewModelVideo1.grayscaleImage {
                         Image(uiImage: image1)
                             .resizable()
                             .frame(width: 300, height: 300)
@@ -175,13 +152,12 @@ struct ContentView: View {
                     }
                     
                     Text("视频2灰度图：")
-                    if let image2 = grayImg2 {
+                    if let image2 = viewModelVideo2.grayscaleImage {
                         Image(uiImage: image2)
                             .resizable()
                             .frame(width: 300, height: 300)
                             .aspectRatio(contentMode: .fit)
                     }
-                    
                 }
                 .padding()
                 .border(Color.gray, width: 1)
@@ -190,4 +166,3 @@ struct ContentView: View {
         }
     }
 }
-
