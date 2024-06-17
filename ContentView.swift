@@ -146,17 +146,13 @@ struct ContentView: View {
                                         Text("视频1灰度图：")
                                         if let image1 = viewModelVideo1.grayscaleImage {
                                                 Image(uiImage: image1)
-                                                        .resizable()
-                                                        .frame(width: 300, height: 300)
-                                                        .aspectRatio(contentMode: .fit)
+                                                        .frame(width: image1.size.width, height: image1.size.height)
                                         }
                                         
                                         Text("视频2灰度图：")
                                         if let image2 = viewModelVideo2.grayscaleImage {
                                                 Image(uiImage: image2)
-                                                        .resizable()
-                                                        .frame(width: 300, height: 300)
-                                                        .aspectRatio(contentMode: .fit)
+                                                        .frame(width: image2.size.width, height: image2.size.height)
                                         }
                                 }
                                 .padding()

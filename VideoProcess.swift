@@ -33,7 +33,7 @@ class VideoProcess: ObservableObject {
                 
         }
         
-        func parseTextFromVideo(asset: AVAsset) throws {
+        func grayImageOfFirstFrame(asset: AVAsset) throws {
                 self.videoTextures.removeAll()
                 let trackOutput = AVAssetReaderTrackOutput(track: self.videoTrack, outputSettings: [
                         (kCVPixelBufferPixelFormatTypeKey as String): Int(kCVPixelFormatType_32BGRA)
@@ -97,7 +97,7 @@ class VideoProcess: ObservableObject {
                                 
                                 try await parseVideoInfo()
                                 
-                                try parseTextFromVideo(asset: asset)
+                                try grayImageOfFirstFrame(asset: asset)
                                 
                         } catch {
                                 print("加载视频时长失败: \(error.localizedDescription)")
@@ -199,17 +199,4 @@ class VideoProcess: ObservableObject {
         }
 }
 
-// Kernel function (grayscaleKernel.metal)
-/*
- kernel void grayscaleKernel(texture2d<float, access::read> inTexture [[texture(0)]],
- texture2d<float, access::write> outTexture [[texture(1)]],
- uint2 gid [[thread_position_in_grid]]) {
- if (gid.x >= inTexture.get_width() || gid.y >= inTexture.get_height()) {
- return;
- }
- 
- float4 color = inTexture.read(gid);
- float gray = dot(color.rgb, float3(0.299, 0.587, 0.114));
- outTexture.write(float4(gray, gray, gray, color.a), gid);
- }
- */
+
