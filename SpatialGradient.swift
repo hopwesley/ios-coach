@@ -16,6 +16,8 @@ class SpatialGradient: ObservableObject {
         @Published var videoFrameCount: Int = 0
         @Published var videoFrameRate: Int = 0
         @Published var grayscaleImage: UIImage?
+        @Published var gradientXImage: UIImage?
+        @Published var gradientYImage: UIImage?
         
         var videoTrack: AVAssetTrack!
         var device: MTLDevice!
@@ -113,13 +115,32 @@ class SpatialGradient: ObservableObject {
                         print("------>>> computeSpatialGradient failed");
                         return;
                 }
-                print("Gradient X: \(gradientX)")
-                print("Gradient Y: \(gradientY)")
+                //                print("Gradient X: \(gradientX)")
+                //                print("Gradient Y: \(gradientY)")
+                
+//                let normalizedGradientX = normalizeGradient(gradientX, width: grayImageTexture.width, height: grayImageTexture.height)
+//                let normalizedGradientY = normalizeGradient(gradientY, width: grayImageTexture.width, height: grayImageTexture.height)
+//                
+                if let gradientXTexture = createTextureFromGradient(device: device, width: grayImageTexture.width, height: grayImageTexture.height, gradient: gradientX),
+                   let gradientXImage = textureToUIImage(texture: gradientXTexture) {
+                        DispatchQueue.main.async {
+                                self.gradientXImage = gradientXImage
+                        }
+                }
+                
+                if let gradientYTexture = createTextureFromGradient(device: device, width: grayImageTexture.width, height: grayImageTexture.height, gradient: gradientY),
+                   let gradientYImage = textureToUIImage(texture: gradientYTexture) {
+                        DispatchQueue.main.async {
+                                self.gradientYImage = gradientYImage
+                        }
+                }
         }
         
         func removeVideo() {
                 videoURL = nil
                 self.grayscaleImage = nil
+                self.gradientXImage = nil
+                self.gradientYImage = nil
         }
         
         func convertToGray() {

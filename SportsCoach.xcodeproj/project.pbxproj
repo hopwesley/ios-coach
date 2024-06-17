@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		6912FD052C1FE30F002BCEAD /* SpatialGradient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6912FD042C1FE30F002BCEAD /* SpatialGradient.swift */; };
+		6912FD072C1FFA7B002BCEAD /* SpatialProcessingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6912FD062C1FFA7B002BCEAD /* SpatialProcessingView.swift */; };
+		6912FD092C1FFB74002BCEAD /* GrayProcessingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6912FD082C1FFB74002BCEAD /* GrayProcessingView.swift */; };
 		696E04542C0EC08B00DF649D /* SpatialGradient.metal in Sources */ = {isa = PBXBuildFile; fileRef = 696E04532C0EC08B00DF649D /* SpatialGradient.metal */; };
 		696E04572C0EC0CA00DF649D /* MetalView_test2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696E04562C0EC0CA00DF649D /* MetalView_test2.swift */; };
 		696E045B2C0EC44F00DF649D /* MetalView_test2_2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696E045A2C0EC44F00DF649D /* MetalView_test2_2.swift */; };
@@ -29,6 +31,8 @@
 
 /* Begin PBXFileReference section */
 		6912FD042C1FE30F002BCEAD /* SpatialGradient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialGradient.swift; sourceTree = "<group>"; };
+		6912FD062C1FFA7B002BCEAD /* SpatialProcessingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialProcessingView.swift; sourceTree = "<group>"; };
+		6912FD082C1FFB74002BCEAD /* GrayProcessingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrayProcessingView.swift; sourceTree = "<group>"; };
 		696E04532C0EC08B00DF649D /* SpatialGradient.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = SpatialGradient.metal; sourceTree = "<group>"; };
 		696E04562C0EC0CA00DF649D /* MetalView_test2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView_test2.swift; sourceTree = "<group>"; };
 		696E045A2C0EC44F00DF649D /* MetalView_test2_2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView_test2_2.swift; sourceTree = "<group>"; };
@@ -79,6 +83,8 @@
 				69DC622B2C12C17800F07E00 /* shader */,
 				699823002C11AEF900A2B485 /* ContentView.swift */,
 				6912FD042C1FE30F002BCEAD /* SpatialGradient.swift */,
+				6912FD062C1FFA7B002BCEAD /* SpatialProcessingView.swift */,
+				6912FD082C1FFB74002BCEAD /* GrayProcessingView.swift */,
 				69B1B4362C1D7B7C002DD15D /* GrayConverter.swift */,
 				696E04552C0EC0AB00DF649D /* test2 */,
 				69D9CF8C2C0C1FB90001AE0C /* SportsCoachApp.swift */,
@@ -216,8 +222,10 @@
 				69D9CF912C0C1FB90001AE0C /* Item.swift in Sources */,
 				69D9CF8D2C0C1FB90001AE0C /* SportsCoachApp.swift in Sources */,
 				6912FD052C1FE30F002BCEAD /* SpatialGradient.swift in Sources */,
+				6912FD072C1FFA7B002BCEAD /* SpatialProcessingView.swift in Sources */,
 				696E04572C0EC0CA00DF649D /* MetalView_test2.swift in Sources */,
 				69B1B4372C1D7B7C002DD15D /* GrayConverter.swift in Sources */,
+				6912FD092C1FFB74002BCEAD /* GrayProcessingView.swift in Sources */,
 				69D9CFA42C0C75290001AE0C /* Shaders.metal in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

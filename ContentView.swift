@@ -6,6 +6,9 @@ let constMaxVideoLen = 20.0
 struct ContentView: View {
         @StateObject private var viewModelVideo1 = SpatialGradient()
         @StateObject private var viewModelVideo2 = SpatialGradient()
+//        @StateObject private var viewModelVideo1 = GrayConverter()
+//        @StateObject private var viewModelVideo2 = GrayConverter()
+        
         @State private var showImagePicker1 = false
         @State private var showImagePicker2 = false
         
@@ -144,16 +147,13 @@ struct ContentView: View {
                                 }
                                 VStack {
                                         Text("视频1灰度图：")
-                                        if let image1 = viewModelVideo1.grayscaleImage {
-                                                Image(uiImage: image1)
-                                                        .frame(width: image1.size.width, height: image1.size.height)
-                                        }
+                                        SpatialProcessingView(viewModel: viewModelVideo1)
+//                                        GrayProcessingView(viewModel: viewModelVideo1)
+
                                         
                                         Text("视频2灰度图：")
-                                        if let image2 = viewModelVideo2.grayscaleImage {
-                                                Image(uiImage: image2)
-                                                        .frame(width: image2.size.width, height: image2.size.height)
-                                        }
+                                        SpatialProcessingView(viewModel: viewModelVideo2)
+//                                        GrayProcessingView(viewModel: viewModelVideo2)
                                 }
                                 .padding()
                                 .border(Color.gray, width: 1)

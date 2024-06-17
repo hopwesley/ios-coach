@@ -118,7 +118,10 @@ func textureToUIImage(texture: MTLTexture) -> UIImage? {
         let bitsPerComponent = 8
         let bitsPerPixel = 32
         
-        let providerRef = CGDataProvider(data: NSData(bytes: &imageBytes, length: imageBytes.count))
+        guard let providerRef = CGDataProvider(data: NSData(bytes: &imageBytes, length: imageBytes.count)) else {
+                print("Failed to create CGDataProvider.")
+                return nil
+        }
         let cgImage = CGImage(
                 width: width,
                 height: height,
@@ -127,7 +130,7 @@ func textureToUIImage(texture: MTLTexture) -> UIImage? {
                 bytesPerRow: rowBytes,
                 space: colorSpace,
                 bitmapInfo: bitmapInfo,
-                provider: providerRef!,
+                provider: providerRef,
                 decode: nil,
                 shouldInterpolate: false,
                 intent: .defaultIntent
@@ -239,4 +242,64 @@ func computeSpatialGradient(device: MTLDevice, commandQueue:MTLCommandQueue,
         let gradientYArray = Array(UnsafeBufferPointer(start: gradientYPointer, count: size))
         
         return (gradientXArray, gradientYArray)
+}
+
+
+func createTextureFromGradient(device: MTLDevice, width: Int, height: Int, gradient: [Float]) -> MTLTexture? {
+        let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: .r32Float, // 单通道浮点纹理
+                width: width,
+                height: height,
+                mipmapped: false
+        )
+        textureDescriptor.usage = [.shaderRead, .shaderWrite]
+        
+        guard let texture = device.makeTexture(descriptor: textureDescriptor) else {
+                print("Failed to create texture.")
+                return nil
+        }
+        
+        let region = MTLRegionMake2D(0, 0, width, height)
+        let bytesPerRow = MemoryLayout<Float>.size * width
+        texture.replace(region: region, mipmapLevel: 0, withBytes: gradient, bytesPerRow: bytesPerRow)
+        
+        return texture
+}
+
+
+func normalizeGradient(_ gradient: [Float], width: Int, height: Int) -> [Float] {
+        var normalizedGradient = [Float](repeating: 0, count: width * height)
+        
+        // 找到梯度数据的最小值和最大值
+        let minVal = gradient.min() ?? 0
+        let maxVal = gradient.max() ?? 1
+        
+        // 规范化梯度数据
+        for i in 0..<gradient.count {
+                normalizedGradient[i] = (gradient[i] - minVal) / (maxVal - minVal)
+        }
+        
+        return normalizedGradient
+}
+
+
+func createTextureFromNormalizedGradient(device: MTLDevice, width: Int, height: Int, normalizedGradient: [Float]) -> MTLTexture? {
+        let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: .r32Float, // 单通道浮点纹理
+                width: width,
+                height: height,
+                mipmapped: false
+        )
+        textureDescriptor.usage = [.shaderRead, .shaderWrite]
+        
+        guard let texture = device.makeTexture(descriptor: textureDescriptor) else {
+                print("Failed to create texture.")
+                return nil
+        }
+        
+        let region = MTLRegionMake2D(0, 0, width, height)
+        let bytesPerRow = MemoryLayout<Float>.size * width
+        texture.replace(region: region, mipmapLevel: 0, withBytes: normalizedGradient, bytesPerRow: bytesPerRow)
+        
+        return texture
 }
