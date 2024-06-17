@@ -5,7 +5,7 @@ import CoreImage
 import UIKit
 import MetalKit
 
-class VideoProcess: ObservableObject {
+class GrayConverter: ObservableObject {
         @Published var videoURL: URL?
         @Published var videoDurationText: String = "00:00"
         @Published var videoFrameCount: Int = 0
