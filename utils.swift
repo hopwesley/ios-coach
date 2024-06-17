@@ -91,3 +91,30 @@ func getPixelDataFromTexture(texture: MTLTexture) -> [UInt8]? {
     return rawData
 }
 
+
+ func extractPixelData(ciImage: CIImage, context: CIContext) -> [UInt8]? {
+    // 将CIImage转换为CGImage
+    guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else {
+        print("Unable to create CGImage from CIImage")
+        return nil
+    }
+
+    let width = cgImage.width
+    let height = cgImage.height
+    let colorSpace = CGColorSpaceCreateDeviceRGB()
+    var rawData = [UInt8](repeating: 0, count: width * height * 4)
+    let bytesPerPixel = 4
+    let bytesPerRow = bytesPerPixel * width
+    let bitsPerComponent = 8
+    
+    // 创建一个位图上下文
+    guard let bitmapContext = CGContext(data: &rawData, width: width, height: height, bitsPerComponent: bitsPerComponent, bytesPerRow: bytesPerRow, space: colorSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+        print("Unable to create bitmap context")
+        return nil
+    }
+
+    // 绘制CGImage到位图上下文
+    bitmapContext.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+    
+    return rawData
+}
