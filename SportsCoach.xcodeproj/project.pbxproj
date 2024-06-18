@@ -17,6 +17,9 @@
 		69557C572C21465D004C63A3 /* videoPicker+extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69557C562C21465D004C63A3 /* videoPicker+extension.swift */; };
 		69557C592C2146DB004C63A3 /* test_util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69557C582C2146DB004C63A3 /* test_util.swift */; };
 		69557C5C2C214C22004C63A3 /* TimeProcessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69557C5B2C214C22004C63A3 /* TimeProcessing.swift */; };
+		69557C5E2C217FB3004C63A3 /* QuantizeGradients.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69557C5D2C217FB3004C63A3 /* QuantizeGradients.swift */; };
+		69557C602C2198D6004C63A3 /* quantizeGradient.metal in Sources */ = {isa = PBXBuildFile; fileRef = 69557C5F2C2198D6004C63A3 /* quantizeGradient.metal */; };
+		69557C622C219B37004C63A3 /* quantize.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69557C612C219B37004C63A3 /* quantize.swift */; };
 		696E04542C0EC08B00DF649D /* SpatialGradient.metal in Sources */ = {isa = PBXBuildFile; fileRef = 696E04532C0EC08B00DF649D /* SpatialGradient.metal */; };
 		696E04572C0EC0CA00DF649D /* MetalView_test2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696E04562C0EC0CA00DF649D /* MetalView_test2.swift */; };
 		696E045B2C0EC44F00DF649D /* MetalView_test2_2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696E045A2C0EC44F00DF649D /* MetalView_test2_2.swift */; };
@@ -47,6 +50,9 @@
 		69557C562C21465D004C63A3 /* videoPicker+extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "videoPicker+extension.swift"; sourceTree = "<group>"; };
 		69557C582C2146DB004C63A3 /* test_util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = test_util.swift; sourceTree = "<group>"; };
 		69557C5B2C214C22004C63A3 /* TimeProcessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeProcessing.swift; sourceTree = "<group>"; };
+		69557C5D2C217FB3004C63A3 /* QuantizeGradients.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuantizeGradients.swift; sourceTree = "<group>"; };
+		69557C5F2C2198D6004C63A3 /* quantizeGradient.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = quantizeGradient.metal; sourceTree = "<group>"; };
+		69557C612C219B37004C63A3 /* quantize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = quantize.swift; sourceTree = "<group>"; };
 		696E04532C0EC08B00DF649D /* SpatialGradient.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = SpatialGradient.metal; sourceTree = "<group>"; };
 		696E04562C0EC0CA00DF649D /* MetalView_test2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView_test2.swift; sourceTree = "<group>"; };
 		696E045A2C0EC44F00DF649D /* MetalView_test2_2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView_test2_2.swift; sourceTree = "<group>"; };
@@ -87,6 +93,7 @@
 				69557C582C2146DB004C63A3 /* test_util.swift */,
 				69557C562C21465D004C63A3 /* videoPicker+extension.swift */,
 				69557C542C2145E5004C63A3 /* gradient.swift */,
+				69557C612C219B37004C63A3 /* quantize.swift */,
 			);
 			path = util;
 			sourceTree = "<group>";
@@ -107,6 +114,7 @@
 				69557C5A2C21471C004C63A3 /* util */,
 				69DC622B2C12C17800F07E00 /* shader */,
 				699823002C11AEF900A2B485 /* ContentView.swift */,
+				69557C5D2C217FB3004C63A3 /* QuantizeGradients.swift */,
 				6912FD042C1FE30F002BCEAD /* SpatialGradient.swift */,
 				69557C522C2144F9004C63A3 /* GradientWithTime.swift */,
 				6912FD062C1FFA7B002BCEAD /* SpatialProcessingView.swift */,
@@ -166,6 +174,7 @@
 				696E04532C0EC08B00DF649D /* SpatialGradient.metal */,
 				69B711A82C10743600C85DFF /* GrayscaleShader.metal */,
 				69557C502C213735004C63A3 /* TimeGradient.metal */,
+				69557C5F2C2198D6004C63A3 /* quantizeGradient.metal */,
 			);
 			path = shader;
 			sourceTree = "<group>";
@@ -242,8 +251,10 @@
 			files = (
 				696E04542C0EC08B00DF649D /* SpatialGradient.metal in Sources */,
 				69557C5C2C214C22004C63A3 /* TimeProcessing.swift in Sources */,
+				69557C622C219B37004C63A3 /* quantize.swift in Sources */,
 				699823012C11AEF900A2B485 /* ContentView.swift in Sources */,
 				69B711AB2C10746200C85DFF /* MetalView_test2_3.swift in Sources */,
+				69557C5E2C217FB3004C63A3 /* QuantizeGradients.swift in Sources */,
 				69DC622D2C12F0C500F07E00 /* utils.swift in Sources */,
 				69D9CF9D2C0C202A0001AE0C /* MetalView_test1.swift in Sources */,
 				6912FD0B2C2031DB002BCEAD /* GrayConverterSingleChannel.swift in Sources */,
@@ -262,6 +273,7 @@
 				69557C572C21465D004C63A3 /* videoPicker+extension.swift in Sources */,
 				6912FD092C1FFB74002BCEAD /* GrayProcessingView.swift in Sources */,
 				69D9CFA42C0C75290001AE0C /* Shaders.metal in Sources */,
+				69557C602C2198D6004C63A3 /* quantizeGradient.metal in Sources */,
 				69557C592C2146DB004C63A3 /* test_util.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

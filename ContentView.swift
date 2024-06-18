@@ -164,7 +164,7 @@ struct ContentView: View {
                                         
                                         
                                         Text("视频2灰度图：")
-                                        TimeProcessing(viewModel: viewModelVideo1)
+                                        TimeProcessing(viewModel: viewModelVideo2)
                                         // SpatialProcessingView(viewModel: viewModelVideo2)
                                         //                                        GrayProcessingView(viewModel: viewModelVideo2)
                                 }

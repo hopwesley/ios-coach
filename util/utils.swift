@@ -6,6 +6,8 @@
 //
 
 import MetalKit
+import simd
+
 
 func textureToUIImage(texture: MTLTexture) -> UIImage? {
         let width = texture.width
@@ -215,3 +217,5 @@ func convertInt16ToUInt8(buffer: MTLBuffer, width: Int, height: Int) -> MTLBuffe
         
         return uint8Buffer
 }
+
+
