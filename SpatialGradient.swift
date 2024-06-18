@@ -32,9 +32,9 @@ class SpatialGradient: ObservableObject {
                 commandQueue = device.makeCommandQueue()
                 
                 let library = device.makeDefaultLibrary()
-                let grayFunction = library?.makeFunction(name: "grayscaleKernel")
+                let grayFunction = library?.makeFunction(name: "grayscaleKernelSingleChannel")
                 grayPipelineState = try! device.makeComputePipelineState(function: grayFunction!)
-                let spatialFunction = library?.makeFunction(name: "spatialGradientKernel")
+                let spatialFunction = library?.makeFunction(name: "sobelGradientAnswer")
                 spatialPipelineState = try! device.makeComputePipelineState(function: spatialFunction!)
         }
         
@@ -104,12 +104,17 @@ class SpatialGradient: ObservableObject {
                         return
                 }
                 // 将帧数据转换为灰度图
-                guard let grayImageTexture = convertToGrayscale(device:device, commandQueue:commandQueue, computePipelineState:grayPipelineState,from: pixelBuffer) else{
+                guard let grayBuffer = computeGrayscale(device:device, commandQueue:commandQueue, grayPipelineState:grayPipelineState,from: pixelBuffer) else{
                         print("------>>> convertToGrayscale failed");
                         return;
                 }
-                
-                guard let grayImage =  textureToUIImage(texture: grayImageTexture) else{
+                // 保存 grayBuffer 到文件
+                saveGrayBufferToFile(fileName: "grayBuffer.json",
+                                     buffer: grayBuffer,
+                                     width: self.videoWidth,
+                                     height: self.videoHeight,
+                                     type: UInt8.self)
+                guard let grayImage =  grayBufferToUIImage(buffer: grayBuffer,width: self.videoWidth,height: self.videoHeight) else{
                         print("------>>> textureToUIImage failed");
                         return
                 }
@@ -118,25 +123,45 @@ class SpatialGradient: ObservableObject {
                         self.grayscaleImage = grayImage
                 }
                 
-                guard let (gradientX, gradientY) = computeSpatialGradient(device:device,commandQueue: commandQueue,gradientPipelineState:spatialPipelineState, for: grayImageTexture)else{
+                guard let (gradientX, gradientY) = showSpatialGradientAnswer(device:device,
+                                                                             commandQueue: commandQueue,
+                                                                             gradientPipelineState:spatialPipelineState,
+                                                                             grayBuffer: grayBuffer,
+                                                                             width: self.videoWidth,
+                                                                             height: self.videoHeight)else{
                         print("------>>> computeSpatialGradient failed");
                         return;
                 }
-                //                print("Gradient X: \(gradientX)")
-                //                print("Gradient Y: \(gradientY)")
                 
-//                let normalizedGradientX = normalizeGradient(gradientX, width: grayImageTexture.width, height: grayImageTexture.height)
-//                let normalizedGradientY = normalizeGradient(gradientY, width: grayImageTexture.width, height: grayImageTexture.height)
-//                
-                if let gradientXTexture = createTextureFromGradient(device: device, width: grayImageTexture.width, height: grayImageTexture.height, gradient: gradientX),
-                   let gradientXImage = textureToUIImage(texture: gradientXTexture) {
+                saveGrayBufferToFile(fileName: "gradientXBuffer.json",
+                                     buffer: gradientX,
+                                     width: self.videoWidth,
+                                     height: self.videoHeight,
+                                     type: Int16.self)
+                guard let convertedGradientX = convertInt16ToUInt8(buffer: gradientX, width: self.videoWidth, height: self.videoHeight)else{
+                        print("------>>> convertInt16ToUInt8 for gradientX failed");
+                        return;
+                }
+                if let gradientXImage = grayBufferToUIImage(buffer: convertedGradientX,
+                                                            width: self.videoWidth,
+                                                            height: self.videoHeight){
                         DispatchQueue.main.async {
                                 self.gradientXImage = gradientXImage
                         }
                 }
                 
-                if let gradientYTexture = createTextureFromGradient(device: device, width: grayImageTexture.width, height: grayImageTexture.height, gradient: gradientY),
-                   let gradientYImage = textureToUIImage(texture: gradientYTexture) {
+                saveGrayBufferToFile(fileName: "gradientYBuffer.json",
+                                     buffer: gradientY,
+                                     width: self.videoWidth,
+                                     height: self.videoHeight,
+                                     type: Int16.self)
+                
+                guard let convertedGradientY = convertInt16ToUInt8(buffer: gradientY, width: self.videoWidth, height: self.videoHeight)else{
+                        print("------>>> convertInt16ToUInt8 for gradientX failed");
+                        return;
+                }
+                
+                if let gradientYImage = grayBufferToUIImage(buffer: convertedGradientY,width: self.videoWidth,height: self.videoHeight){
                         DispatchQueue.main.async {
                                 self.gradientYImage = gradientYImage
                         }

@@ -281,70 +281,50 @@ func computeSpatialGradient(device: MTLDevice, commandQueue:MTLCommandQueue,
         return (gradientXArray, gradientYArray)
 }
 
-
-func createTextureFromGradient(device: MTLDevice, width: Int, height: Int, gradient: [Float]) -> MTLTexture? {
-        let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-                pixelFormat: .r32Float, // 单通道浮点纹理
-                width: width,
-                height: height,
-                mipmapped: false
-        )
-        textureDescriptor.usage = [.shaderRead, .shaderWrite]
-        
-        guard let texture = device.makeTexture(descriptor: textureDescriptor) else {
-                print("Failed to create texture.")
+func showSpatialGradientAnswer(device: MTLDevice, commandQueue: MTLCommandQueue,
+                               gradientPipelineState: MTLComputePipelineState,
+                               grayBuffer: MTLBuffer, width: Int, height: Int) -> (MTLBuffer, MTLBuffer)? {
+        guard let commandBuffer = commandQueue.makeCommandBuffer() else {
+                print("Failed to create command buffer.")
+                return nil
+        }
+        guard let computeEncoder = commandBuffer.makeComputeCommandEncoder() else {
+                print("Failed to create compute encoder.")
                 return nil
         }
         
-        let region = MTLRegionMake2D(0, 0, width, height)
-        let bytesPerRow = MemoryLayout<Float>.size * width
-        texture.replace(region: region, mipmapLevel: 0, withBytes: gradient, bytesPerRow: bytesPerRow)
+        let size = width * height
         
-        return texture
+        let gradientXBuffer = device.makeBuffer(length: size * MemoryLayout<Int16>.size, options: .storageModeShared)!
+        let gradientYBuffer = device.makeBuffer(length: size * MemoryLayout<Int16>.size, options: .storageModeShared)!
+        
+        computeEncoder.setComputePipelineState(gradientPipelineState)
+        computeEncoder.setBuffer(grayBuffer, offset: 0, index: 0)
+        computeEncoder.setBuffer(gradientXBuffer, offset: 0, index: 1)
+        computeEncoder.setBuffer(gradientYBuffer, offset: 0, index: 2)
+        var w = width
+        var h = height
+        computeEncoder.setBytes(&w, length: MemoryLayout<uint>.size, index: 3)
+        computeEncoder.setBytes(&h, length: MemoryLayout<uint>.size, index: 4)
+        
+        let threadGroupSize = MTLSize(width: 8, height: 8, depth: 1)
+        let threadGroups = MTLSize(width: (width + threadGroupSize.width - 1) / threadGroupSize.width,
+                                   height: (height + threadGroupSize.height - 1) / threadGroupSize.height,
+                                   depth: 1)
+        
+        computeEncoder.dispatchThreadgroups(threadGroups, threadsPerThreadgroup: threadGroupSize)
+        computeEncoder.endEncoding()
+        
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        
+        return (gradientXBuffer, gradientYBuffer)
 }
 
 
-func normalizeGradient(_ gradient: [Float], width: Int, height: Int) -> [Float] {
-        var normalizedGradient = [Float](repeating: 0, count: width * height)
-        
-        // 找到梯度数据的最小值和最大值
-        let minVal = gradient.min() ?? 0
-        let maxVal = gradient.max() ?? 1
-        
-        // 规范化梯度数据
-        for i in 0..<gradient.count {
-                normalizedGradient[i] = (gradient[i] - minVal) / (maxVal - minVal)
-        }
-        
-        return normalizedGradient
-}
-
-
-func createTextureFromNormalizedGradient(device: MTLDevice, width: Int, height: Int, normalizedGradient: [Float]) -> MTLTexture? {
-        let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-                pixelFormat: .r32Float, // 单通道浮点纹理
-                width: width,
-                height: height,
-                mipmapped: false
-        )
-        textureDescriptor.usage = [.shaderRead, .shaderWrite]
-        
-        guard let texture = device.makeTexture(descriptor: textureDescriptor) else {
-                print("Failed to create texture.")
-                return nil
-        }
-        
-        let region = MTLRegionMake2D(0, 0, width, height)
-        let bytesPerRow = MemoryLayout<Float>.size * width
-        texture.replace(region: region, mipmapLevel: 0, withBytes: normalizedGradient, bytesPerRow: bytesPerRow)
-        
-        return texture
-}
-
-
-func computeGrayscaleAndConvertToImage(device: MTLDevice, commandQueue: MTLCommandQueue,
-                                       grayPipelineState: MTLComputePipelineState,
-                                       from videoFrame: CVPixelBuffer) -> MTLBuffer? {
+func computeGrayscale(device: MTLDevice, commandQueue: MTLCommandQueue,
+                      grayPipelineState: MTLComputePipelineState,
+                      from videoFrame: CVPixelBuffer) -> MTLBuffer? {
         // Create a texture descriptor for the input texture
         let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
                 pixelFormat: .rgba8Unorm,
@@ -433,13 +413,13 @@ func grayBufferToUIImage(buffer: MTLBuffer, width: Int, height: Int) -> UIImage?
         return UIImage(cgImage: cgImage)
 }
 
-func saveGrayBufferToFile(buffer: MTLBuffer, width: Int, height: Int) {
+func saveGrayBufferToFile<T: Numeric & Codable>(fileName: String, buffer: MTLBuffer, width: Int, height: Int, type: T.Type) {
         let data = buffer.contents()
         let dataLength = width * height
-        let dataPointer = data.bindMemory(to: UInt8.self, capacity: dataLength)
+        let dataPointer = data.bindMemory(to: T.self, capacity: dataLength)
         
         // 将一维数组转换为二维数组
-        var grayValues = [[UInt8]](repeating: [UInt8](repeating: 0, count: width), count: height)
+        var grayValues = [[T]](repeating: [T](repeating: 0 as T, count: width), count: height)
         for y in 0..<height {
                 for x in 0..<width {
                         grayValues[y][x] = dataPointer[y * width + x]
@@ -452,8 +432,6 @@ func saveGrayBufferToFile(buffer: MTLBuffer, width: Int, height: Int) {
                 return
         }
         
-        // 将 JSON 数据保存到文件
-        let fileName = "grayBuffer.json"
         if let documentDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
                 let fileURL = documentDirectory.appendingPathComponent(fileName)
                 do {
@@ -464,3 +442,50 @@ func saveGrayBufferToFile(buffer: MTLBuffer, width: Int, height: Int) {
                 }
         }
 }
+
+
+func mtlBufferToFloat(gradientBuffer:MTLBuffer, size:Int)->[Float]{
+        let bufferPointer = gradientBuffer.contents().bindMemory(to: Float.self, capacity: size)
+        return Array(UnsafeBufferPointer(start: bufferPointer, count: size))
+}
+
+
+func convertInt16ToUInt8(buffer: MTLBuffer, width: Int, height: Int) -> MTLBuffer? {
+        let dataLength = width * height
+        let data = buffer.contents()
+        let dataPointer = data.bindMemory(to: Int16.self, capacity: dataLength)
+        
+        // Step 1: Calculate min and max values
+        var minVal = Int16.max
+        var maxVal = Int16.min
+        
+        for i in 0..<dataLength {
+                let value = dataPointer[i]
+                if value < minVal {
+                        minVal = value
+                }
+                if value > maxVal {
+                        maxVal = value
+                }
+        }
+        
+        // Step 2: Calculate alpha and beta
+        let midVal = (Float(minVal) + Float(maxVal)) / 2.0
+        let alpha = 255.0 / (Float(maxVal) - Float(minVal))
+        let beta = 128.0 - midVal * alpha
+        
+        // Step 3: Create new buffer for uint8 data
+        let uint8Buffer = buffer.device.makeBuffer(length: dataLength * MemoryLayout<UInt8>.size, options: .storageModeShared)!
+        let uint8Pointer = uint8Buffer.contents().bindMemory(to: UInt8.self, capacity: dataLength)
+        
+        // Step 4: Convert int16 data to uint8 data
+        for i in 0..<dataLength {
+                let int16Value = Float(dataPointer[i])
+                let floatResult = int16Value * alpha + beta
+                let uint8Value = UInt8(min(max(floatResult, 0), 255))  // Clamp the value between 0 and 255
+                uint8Pointer[i] = uint8Value
+        }
+        
+        return uint8Buffer
+}
+

@@ -4,11 +4,13 @@ import PhotosUI
 
 let constMaxVideoLen = 20.0
 struct ContentView: View {
-        @StateObject private var viewModelVideo1 = GrayConverterSingleChannel()
-        @StateObject private var viewModelVideo2 = GrayConverterSingleChannel()
+        //        @StateObject private var viewModelVideo1 = GrayConverterSingleChannel()
+        //        @StateObject private var viewModelVideo2 = GrayConverterSingleChannel()
 //        @StateObject private var viewModelVideo1 = GrayConverter()
 //        @StateObject private var viewModelVideo2 = GrayConverter()
         
+        @StateObject private var viewModelVideo1 = SpatialGradient()
+        @StateObject private var viewModelVideo2 = SpatialGradient()
         @State private var showImagePicker1 = false
         @State private var showImagePicker2 = false
         
@@ -152,13 +154,13 @@ struct ContentView: View {
                                 }
                                 VStack {
                                         Text("视频1灰度图：")
-//                                        SpatialProcessingView(viewModel: viewModelVideo1)
-                                        GrayProcessingView(viewModel: viewModelVideo1)
-
+                                        SpatialProcessingView(viewModel: viewModelVideo1)
+                                        //                                        GrayProcessingView(viewModel: viewModelVideo1)
+                                        
                                         
                                         Text("视频2灰度图：")
-//                                        SpatialProcessingView(viewModel: viewModelVideo2)
-                                        GrayProcessingView(viewModel: viewModelVideo2)
+                                        SpatialProcessingView(viewModel: viewModelVideo2)
+                                        //                                        GrayProcessingView(viewModel: viewModelVideo2)
                                 }
                                 .padding()
                                 .border(Color.gray, width: 1)
