@@ -50,7 +50,7 @@ class GrayConverter: ObservableObject {
                         return
                 }
                 // 将帧数据转换为灰度图
-                guard let grayImageTexture = convertToGrayscale(device:device, commandQueue:commandQueue, computePipelineState:computePipelineState,from: pixelBuffer) else{
+                guard let grayImageTexture = convertToGrayscale(device:device, commandQueue:commandQueue, pipelineState:computePipelineState,from: pixelBuffer) else{
                         print("------>>> convertToGrayscale failed");
                         return;
                 }

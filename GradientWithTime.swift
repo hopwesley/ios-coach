@@ -1,15 +1,16 @@
 //
-//  SpatialGradient.swift
+//  TimeGradient.swift
 //  SportsCoach
 //
-//  Created by wesley on 2024/6/17.
+//  Created by wesley on 2024/6/18.
 //
+
 
 import Foundation
 import UIKit
 import AVFoundation
 
-class SpatialGradient: ObservableObject {
+class GradientWithTime: ObservableObject {
         
         @Published var videoURL: URL?
         @Published var videoDurationText: String = "00:00"
@@ -18,6 +19,7 @@ class SpatialGradient: ObservableObject {
         @Published var grayscaleImage: UIImage?
         @Published var gradientXImage: UIImage?
         @Published var gradientYImage: UIImage?
+        @Published var gradientTImage: UIImage?
         @Published var videoWidth:Int = 0
         @Published  var videoHeight:Int = 0
         
@@ -26,6 +28,7 @@ class SpatialGradient: ObservableObject {
         var commandQueue: MTLCommandQueue!
         var grayPipelineState: MTLComputePipelineState!
         var spatialPipelineState: MTLComputePipelineState!
+        var timePipelineState: MTLComputePipelineState!
         
         init() {
                 device = MTLCreateSystemDefaultDevice()
@@ -36,6 +39,8 @@ class SpatialGradient: ObservableObject {
                 grayPipelineState = try! device.makeComputePipelineState(function: grayFunction!)
                 let spatialFunction = library?.makeFunction(name: "sobelGradientAnswer")
                 spatialPipelineState = try! device.makeComputePipelineState(function: spatialFunction!)
+                let timeFunction = library?.makeFunction(name: "absDiffKernel")
+                timePipelineState = try! device.makeComputePipelineState(function: timeFunction!)
         }
         
         func parseVideoInfo() async throws {
@@ -80,7 +85,7 @@ class SpatialGradient: ObservableObject {
                                 
                                 try await parseVideoInfo()
                                 
-                                try spatialFirstFrame(asset: asset)
+                                try gradientOfFrame(asset: asset)
                                 
                         } catch {
                                 print("加载视频时长失败: \(error.localizedDescription)")
@@ -88,7 +93,7 @@ class SpatialGradient: ObservableObject {
                 }
         }
         
-        func spatialFirstFrame(asset: AVAsset) throws{
+        func gradientOfFrame(asset: AVAsset) throws{
                 
                 let trackOutput = AVAssetReaderTrackOutput(track: self.videoTrack, outputSettings: [
                         (kCVPixelBufferPixelFormatTypeKey as String): Int(kCVPixelFormatType_32BGRA)
@@ -104,17 +109,17 @@ class SpatialGradient: ObservableObject {
                         return
                 }
                 // 将帧数据转换为灰度图
-                guard let grayBuffer = computeGrayscale(device:device, commandQueue:commandQueue, grayPipelineState:grayPipelineState,from: pixelBuffer) else{
+                guard let grayFrameA = computeGrayscale(device:device, commandQueue:commandQueue, grayPipelineState:grayPipelineState,from: pixelBuffer) else{
                         print("------>>> convertToGrayscale failed");
                         return;
                 }
                 // 保存 grayBuffer 到文件
-                saveRawDataToFile(fileName: "grayBuffer.json",
-                                     buffer: grayBuffer,
+                saveRawDataToFile(fileName: "grayBufferA.json",
+                                     buffer: grayFrameA,
                                      width: self.videoWidth,
                                      height: self.videoHeight,
                                      type: UInt8.self)
-                guard let grayImage =  grayBufferToUIImage(buffer: grayBuffer,width: self.videoWidth,height: self.videoHeight) else{
+                guard let grayImage =  grayBufferToUIImage(buffer: grayFrameA,width: self.videoWidth,height: self.videoHeight) else{
                         print("------>>> textureToUIImage failed");
                         return
                 }
@@ -126,7 +131,7 @@ class SpatialGradient: ObservableObject {
                 guard let (gradientX, gradientY) = spatialGradient(device:device,
                                                                    commandQueue: commandQueue,
                                                                    pipelineState:spatialPipelineState,
-                                                                   grayBuffer: grayBuffer,
+                                                                   grayBuffer: grayFrameA,
                                                                    width: self.videoWidth,
                                                                    height: self.videoHeight)else{
                         print("------>>> spatialGradient failed");
@@ -166,6 +171,35 @@ class SpatialGradient: ObservableObject {
                                 self.gradientYImage = gradientYImage
                         }
                 }
+                
+                // 读取视频的第二个帧数据
+                guard let sampleBufferB = trackOutput.copyNextSampleBuffer(),
+                      let pixelBufferB = CMSampleBufferGetImageBuffer(sampleBufferB) else{
+                        print("------>>> read second frame from video failed")
+                        return
+                }
+                
+                guard let grayFrameB = computeGrayscale(device:device, commandQueue:commandQueue, grayPipelineState:grayPipelineState,from: pixelBufferB) else{
+                        print("------>>> convertToGrayscale failed");
+                        return;
+                }
+                
+                guard let gradientT = timeGradient(device: device, commandQueue: commandQueue, pipelineState: timePipelineState, grayFrameA: grayFrameA, grayFrameB: grayFrameB, width: self.videoWidth, height: self.videoHeight) else{
+                        print("------>>> timeGradient for gradientX failed");
+                        return;
+                }
+                
+                saveRawDataToFile(fileName: "gradientTBuffer.json",
+                                     buffer: gradientT,
+                                     width: self.videoWidth,
+                                     height: self.videoHeight,
+                                     type: UInt8.self)
+         
+                if let gradientTImage = grayBufferToUIImage(buffer: gradientT,width: self.videoWidth,height: self.videoHeight){
+                        DispatchQueue.main.async {
+                                self.gradientTImage = gradientTImage
+                        }
+                }
         }
         
         func removeVideo() {
@@ -176,7 +210,6 @@ class SpatialGradient: ObservableObject {
         }
         
         func convertToGray() {
-                
         }
         
         func reset() {

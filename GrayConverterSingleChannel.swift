@@ -55,7 +55,7 @@ class GrayConverterSingleChannel: ObservableObject {
                         return;
                 }
                 // 保存 grayBuffer 到文件
-                saveGrayBufferToFile(fileName: "grayBuffer.json",
+                saveRawDataToFile(fileName: "grayBuffer.json",
                                      buffer: grayBuffer,
                                      width: self.videoWidth,
                                      height: self.videoHeight,
