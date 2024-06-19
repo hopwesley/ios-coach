@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct TimeProcessing: View {
+struct TimeProcessingView: View {
         @ObservedObject var viewModel: GradientWithTime
         @State private var showImagePicker = false
         
