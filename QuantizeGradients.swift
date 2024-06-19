@@ -35,15 +35,16 @@ class QuantizeGradients: ObservableObject {
                 commandQueue = device.makeCommandQueue()
                 
                 let library = device.makeDefaultLibrary()
+                
                 let grayFunction = library?.makeFunction(name: "grayscaleKernelSingleChannel")
-                
                 grayPipelineState = try! device.makeComputePipelineState(function: grayFunction!)
+                
                 let spatialFunction = library?.makeFunction(name: "sobelGradientAnswer")
-                
                 spatialPipelineState = try! device.makeComputePipelineState(function: spatialFunction!)
-                let timeFunction = library?.makeFunction(name: "absDiffKernel")
                 
+                let timeFunction = library?.makeFunction(name: "absDiffKernel")
                 timePipelineState = try! device.makeComputePipelineState(function: timeFunction!)
+                
                 let quantizeFunction = library?.makeFunction(name: "computeGradientProjections")
                 quantizePipelineState = try! device.makeComputePipelineState(function: quantizeFunction!)
         }
@@ -99,7 +100,6 @@ class QuantizeGradients: ObservableObject {
         
         
         func quantizeFrame(asset: AVAsset) throws{
-                
                 let trackOutput = AVAssetReaderTrackOutput(track: self.videoTrack, outputSettings: [
                         (kCVPixelBufferPixelFormatTypeKey as String): Int(kCVPixelFormatType_32BGRA)
                 ])
@@ -146,22 +146,29 @@ class QuantizeGradients: ObservableObject {
                         return;
                 }
                 
+                saveRawDataToFile(fileName: "gradientTBuffer.json",
+                                  buffer: gradientT,
+                                  width: self.videoWidth,
+                                  height: self.videoHeight,
+                                  type: UInt8.self)
+                
                 if let gradientTImage = grayBufferToUIImage(buffer: gradientT,width: self.videoWidth,height: self.videoHeight){
                         DispatchQueue.main.async {
                                 self.gradientTImage = gradientTImage
                         }
                 }
                 
-                guard let finalQuantity = computeGradientProjections(device: device, commandQueue: commandQueue, pipelineState: quantizePipelineState, grayBufferX: gradientX, grayBufferY: gradientY, grayBufferT: gradientT, width: self.videoWidth, height: self.videoHeight) else{
+                guard let finalQuantity = quantizeGradients(device: device, commandQueue: commandQueue, pipelineState: quantizePipelineState, grayBufferX: gradientX, grayBufferY: gradientY, grayBufferT: gradientT, width: self.videoWidth, height: self.videoHeight) else{
                         print("------>>> computeGradientProjections  failed");
                         return;
                 }
                 
-                saveRawDataToFile(fileName: "quantizeBuffer.json",
-                                  buffer: finalQuantity,
-                                  width: self.videoWidth,
-                                  height: self.videoHeight,
-                                  type: Float.self)
+                saveRawDataToFileWithDepth(fileName: "quantizeBuffer.json",
+                                           buffer: finalQuantity,
+                                           width: self.videoWidth,
+                                           height: self.videoHeight, 
+                                           depth: 10,
+                                           type: Float.self)
         }
         
         func removeVideo() {

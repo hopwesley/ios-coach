@@ -26,7 +26,9 @@ struct SportsCoachApp: App {
 
     var body: some Scene {
         WindowGroup {
-                ContentView()
+                ContentView().onAppear(){
+                        clearTemporaryDirectory()
+                }
         }
         .modelContainer(sharedModelContainer)
     }

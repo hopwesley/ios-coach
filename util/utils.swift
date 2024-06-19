@@ -160,17 +160,49 @@ func saveRawDataToFile<T: Numeric & Codable>(fileName: String, buffer: MTLBuffer
                 print("Error encoding gray buffer to JSON")
                 return
         }
-        
-        if let documentDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
-                let fileURL = documentDirectory.appendingPathComponent(fileName)
-                do {
-                        try jsonData.write(to: fileURL, options: .atomic)
-                        print("Gray buffer saved to file: \(fileURL)")
-                } catch {
-                        print("Error saving gray buffer to file: \(error)")
-                }
+        let tempDirectory = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+        let fileURL = tempDirectory.appendingPathComponent(fileName)
+        do {
+                try jsonData.write(to: fileURL, options: .atomic)
+                print("Gray buffer saved to file: \(fileURL)")
+        } catch {
+                print("Error saving gray buffer to file: \(error)")
         }
 }
+
+
+func saveRawDataToFileWithDepth<T: Numeric & Codable>(fileName: String, buffer: MTLBuffer, width: Int, height: Int, depth: Int, type: T.Type) {
+    let data = buffer.contents()
+    let dataLength = width * height * depth
+    let dataPointer = data.bindMemory(to: T.self, capacity: dataLength)
+    
+    // 将一维数组转换为三维数组
+    var values = [[[T]]](repeating: [[T]](repeating: [T](repeating: 0 as T, count: depth), count: width), count: height)
+    
+    for y in 0..<height {
+        for x in 0..<width {
+            for z in 0..<depth {
+                values[y][x][z] = dataPointer[(y * width * depth) + (x * depth) + z]
+            }
+        }
+    }
+    
+    // 将三维数组转换为 JSON 数据
+    guard let jsonData = try? JSONEncoder().encode(values) else {
+        print("Error encoding buffer to JSON")
+        return
+    }
+    
+    let tempDirectory = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+    let fileURL = tempDirectory.appendingPathComponent(fileName)
+    do {
+        try jsonData.write(to: fileURL, options: .atomic)
+        print("Buffer saved to file: \(fileURL)")
+    } catch {
+        print("Error saving buffer to file: \(error)")
+    }
+}
+
 
 
 func mtlBufferToFloat(gradientBuffer:MTLBuffer, size:Int)->[Float]{
@@ -219,3 +251,29 @@ func convertInt16ToUInt8(buffer: MTLBuffer, width: Int, height: Int) -> MTLBuffe
 }
 
 
+func deleteFile(at url: URL) {
+        let fileManager = FileManager.default
+        do {
+                try fileManager.removeItem(at: url)
+                print("Temporary file deleted: \(url)")
+        } catch {
+                print("Error deleting temporary file: \(error.localizedDescription)")
+        }
+}
+
+func clearTemporaryDirectory() {
+        Task {
+                let fileManager = FileManager.default
+                let tempDirectory = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+                
+                do {
+                        let tempDirectoryContents = try fileManager.contentsOfDirectory(at: tempDirectory, includingPropertiesForKeys: nil, options: [])
+                        for file in tempDirectoryContents {
+                                try fileManager.removeItem(at: file)
+                        }
+                        print("Temporary directory cleared successfully.")
+                } catch {
+                        print("Failed to clear temporary directory: \(error)")
+                }
+        }
+}

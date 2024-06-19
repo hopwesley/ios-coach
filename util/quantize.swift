@@ -36,7 +36,7 @@ let icosahedronCenterPPart5: [SIMD3<Float>] = [
 let icosahedronCenterP = icosahedronCenterPPart1 + icosahedronCenterPPart2 + icosahedronCenterPPart3 + icosahedronCenterPPart4 + icosahedronCenterPPart5
 
 
-func computeGradientProjections(device: MTLDevice, commandQueue: MTLCommandQueue,
+func quantizeGradients(device: MTLDevice, commandQueue: MTLCommandQueue,
                                 pipelineState: MTLComputePipelineState,
                                 grayBufferX: MTLBuffer, grayBufferY: MTLBuffer, grayBufferT: MTLBuffer,
                                 width: Int, height: Int) -> MTLBuffer? {
