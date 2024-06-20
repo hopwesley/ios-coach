@@ -8,7 +8,8 @@
 import SwiftUI
 
 struct QuantizeProcessingView: View {
-        @ObservedObject var viewModel: QuantizeGradients
+//        @ObservedObject var viewModel: QuantizeGradients
+        @ObservedObject var viewModel: DescriptorProc
         @State private var showImagePicker = false
         
         var body: some View {

@@ -10,7 +10,7 @@ import Foundation
 import UIKit
 import AVFoundation
 
-class Descripter: ObservableObject {
+class DescriptorProc: ObservableObject {
         @Published var videoURL: URL?
         @Published var videoDurationText: String = "00:00"
         @Published var videoFrameCount: Int = 0
@@ -45,7 +45,7 @@ class Descripter: ObservableObject {
                 let timeFunction = library?.makeFunction(name: "absDiffKernel")
                 timePipelineState = try! device.makeComputePipelineState(function: timeFunction!)
                 
-                let quantizeFunction = library?.makeFunction(name: "quantizeBlockGradient")
+                let quantizeFunction = library?.makeFunction(name: "averageGradientOfAllBlock")
                 quantizePipelineState = try! device.makeComputePipelineState(function: quantizeFunction!)
         }
         
@@ -158,19 +158,20 @@ class Descripter: ObservableObject {
                         }
                 }
                 
-//                guard let finalQuantity = quantizeGradientsOfBlock(device: device, commandQueue: commandQueue, pipelineState: quantizePipelineState,
-//                                                                      grayBufferX: gradientX, grayBufferY: gradientY, grayBufferT: gradientT,
-//                                                                      width: self.videoWidth, height: self.videoHeight,blockSize:16, s:32) else{
-//                        print("------>>> computeGradientProjections  failed");
-//                        return;
-//                }
-//                
-//                saveRawDataToFileWithDepth(fileName: "quantizeBuffer.json",
-//                                           buffer: finalQuantity,
-//                                           width: self.videoWidth,
-//                                           height: self.videoHeight,
-//                                           depth: 10,
-//                                           type: Float.self)
+                guard let finalQuantity = blockAvgGradientQuantize(device: device, commandQueue: commandQueue, pipelineState: quantizePipelineState,
+                                                                    gradientX: gradientX, gradientY: gradientY, gradientT: gradientT,
+                                                                    width: self.videoWidth, height: self.videoHeight,blockSize:32) else{
+                        print("------>>> computeGradientProjections  failed");
+                        return;
+                }
+                let numBlocksX = (self.videoWidth + 32 - 1) / 32
+                let numBlocksY = (self.videoHeight + 32 - 1) / 32
+                saveRawDataToFileWithDepth(fileName: "blockGradientBuffer.json",
+                                           buffer: finalQuantity,
+                                           width: numBlocksX,
+                                           height: numBlocksY,
+                                           depth: 10,
+                                           type: Float.self)
         }
         
         func removeVideo() {

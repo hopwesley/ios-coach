@@ -12,10 +12,12 @@ struct ContentView: View {
         //        @StateObject private var viewModelVideo2 = SpatialGradient()
         //        @StateObject private var viewModelVideo1 = GradientWithTime()
         //        @StateObject private var viewModelVideo2 = GradientWithTime()
+//        @StateObject private var viewModelVideo1 = QuantizeGradients()
+//        @StateObject private var viewModelVideo2 = QuantizeGradients()
         
         
-        @StateObject private var viewModelVideo1 = QuantizeGradients()
-        @StateObject private var viewModelVideo2 = QuantizeGradients()
+        @StateObject private var viewModelVideo1 = DescriptorProc()
+        @StateObject private var viewModelVideo2 = DescriptorProc()
         
         @State private var showImagePicker1 = false
         @State private var showImagePicker2 = false

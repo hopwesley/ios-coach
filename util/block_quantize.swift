@@ -11,10 +11,10 @@ import Metal
 let DescriptorParam_M = 2
 let DescriptorParam_m = 4
 
-func computeQuantizedGradients(device: MTLDevice, commandQueue: MTLCommandQueue,
+func blockAvgGradientQuantize(device: MTLDevice, commandQueue: MTLCommandQueue,
                                pipelineState: MTLComputePipelineState,
                                gradientX: MTLBuffer, gradientY: MTLBuffer, gradientT: MTLBuffer,
-                               width: Int, height: Int, blockSize: Int, P: [SIMD3<Float>]) -> MTLBuffer? {
+                               width: Int, height: Int, blockSize: Int) -> MTLBuffer? {
         guard let commandBuffer = commandQueue.makeCommandBuffer() else {
                 print("Failed to create command buffer.")
                 return nil
@@ -35,9 +35,8 @@ func computeQuantizedGradients(device: MTLDevice, commandQueue: MTLCommandQueue,
         
         // 初始化outputQBuffer内容为0
         memset(outputQBuffer.contents(), 0, numBlocks * 10 * MemoryLayout<Float>.stride)
-        
-        let PBufferSize = P.count * MemoryLayout<SIMD3<Float>>.stride
-        guard let PBuffer = device.makeBuffer(bytes: P, length: PBufferSize, options: .storageModeShared) else {
+        let PBufferSize = icosahedronCenterP.count * MemoryLayout<SIMD3<Float>>.stride
+        guard let PBuffer = device.makeBuffer(bytes: icosahedronCenterP, length: PBufferSize, options: .storageModeShared) else {
                 print("Failed to create P buffer.")
                 return nil
         }
