@@ -78,12 +78,14 @@ kernel void averageGradientOfAllBlock(
                         count++;
                 }
         }
+//        printf("Block (%d, %d): sumGradient = (%f, %f, %f)\n", gid.x, gid.y, sumGradient.x, sumGradient.y, sumGradient.z);
         
         if (count > 0) {
                 sumGradient /= float(count);
         }
         
         // 调用量化梯度计算函数
-        uint avgIndex = gid.y * (width / blockSize) + gid.x;
+        uint numBlocksX = (width + blockSize - 1) / blockSize;
+        uint avgIndex = gid.y * numBlocksX + gid.x;
         quantizeGradientOfBlock(sumGradient, P, outputQ, avgIndex);
 }
