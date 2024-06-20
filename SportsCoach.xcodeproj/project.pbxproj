@@ -12,6 +12,8 @@
 		6912FD092C1FFB74002BCEAD /* GrayProcessingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6912FD082C1FFB74002BCEAD /* GrayProcessingView.swift */; };
 		6912FD0B2C2031DB002BCEAD /* GrayConverterSingleChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6912FD0A2C2031DB002BCEAD /* GrayConverterSingleChannel.swift */; };
 		691876092C2285F40016A9B2 /* QuantizeProcessingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 691876082C2285F40016A9B2 /* QuantizeProcessingView.swift */; };
+		694443B02C22D2B40012D058 /* Descriptor.metal in Sources */ = {isa = PBXBuildFile; fileRef = 694443AF2C22D2B40012D058 /* Descriptor.metal */; };
+		694443B22C22D6EC0012D058 /* Descripter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 694443B12C22D6EC0012D058 /* Descripter.swift */; };
 		69557C512C213735004C63A3 /* TimeGradient.metal in Sources */ = {isa = PBXBuildFile; fileRef = 69557C502C213735004C63A3 /* TimeGradient.metal */; };
 		69557C532C2144F9004C63A3 /* GradientWithTime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69557C522C2144F9004C63A3 /* GradientWithTime.swift */; };
 		69557C552C2145E5004C63A3 /* gradient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69557C542C2145E5004C63A3 /* gradient.swift */; };
@@ -25,6 +27,7 @@
 		696E04572C0EC0CA00DF649D /* MetalView_test2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696E04562C0EC0CA00DF649D /* MetalView_test2.swift */; };
 		696E045B2C0EC44F00DF649D /* MetalView_test2_2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696E045A2C0EC44F00DF649D /* MetalView_test2_2.swift */; };
 		699823012C11AEF900A2B485 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699823002C11AEF900A2B485 /* ContentView.swift */; };
+		699ADCF92C22E87B00BD63AE /* block_quantize.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699ADCF82C22E87B00BD63AE /* block_quantize.swift */; };
 		69B1B4372C1D7B7C002DD15D /* GrayConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69B1B4362C1D7B7C002DD15D /* GrayConverter.swift */; };
 		69B711A92C10743600C85DFF /* GrayscaleShader.metal in Sources */ = {isa = PBXBuildFile; fileRef = 69B711A82C10743600C85DFF /* GrayscaleShader.metal */; };
 		69B711AB2C10746200C85DFF /* MetalView_test2_3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69B711AA2C10746200C85DFF /* MetalView_test2_3.swift */; };
@@ -46,6 +49,8 @@
 		6912FD082C1FFB74002BCEAD /* GrayProcessingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrayProcessingView.swift; sourceTree = "<group>"; };
 		6912FD0A2C2031DB002BCEAD /* GrayConverterSingleChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrayConverterSingleChannel.swift; sourceTree = "<group>"; };
 		691876082C2285F40016A9B2 /* QuantizeProcessingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuantizeProcessingView.swift; sourceTree = "<group>"; };
+		694443AF2C22D2B40012D058 /* Descriptor.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Descriptor.metal; sourceTree = "<group>"; };
+		694443B12C22D6EC0012D058 /* Descripter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Descripter.swift; sourceTree = "<group>"; };
 		69557C502C213735004C63A3 /* TimeGradient.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = TimeGradient.metal; sourceTree = "<group>"; };
 		69557C522C2144F9004C63A3 /* GradientWithTime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradientWithTime.swift; sourceTree = "<group>"; };
 		69557C542C2145E5004C63A3 /* gradient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = gradient.swift; sourceTree = "<group>"; };
@@ -59,6 +64,7 @@
 		696E04562C0EC0CA00DF649D /* MetalView_test2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView_test2.swift; sourceTree = "<group>"; };
 		696E045A2C0EC44F00DF649D /* MetalView_test2_2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView_test2_2.swift; sourceTree = "<group>"; };
 		699823002C11AEF900A2B485 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		699ADCF82C22E87B00BD63AE /* block_quantize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = block_quantize.swift; sourceTree = "<group>"; };
 		69B1B4362C1D7B7C002DD15D /* GrayConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrayConverter.swift; sourceTree = "<group>"; };
 		69B711A82C10743600C85DFF /* GrayscaleShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = GrayscaleShader.metal; sourceTree = "<group>"; };
 		69B711AA2C10746200C85DFF /* MetalView_test2_3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView_test2_3.swift; sourceTree = "<group>"; };
@@ -96,6 +102,7 @@
 				69557C562C21465D004C63A3 /* videoPicker+extension.swift */,
 				69557C542C2145E5004C63A3 /* gradient.swift */,
 				69557C612C219B37004C63A3 /* quantize.swift */,
+				699ADCF82C22E87B00BD63AE /* block_quantize.swift */,
 			);
 			path = util;
 			sourceTree = "<group>";
@@ -118,6 +125,7 @@
 				699823002C11AEF900A2B485 /* ContentView.swift */,
 				69557C5D2C217FB3004C63A3 /* QuantizeGradients.swift */,
 				6912FD042C1FE30F002BCEAD /* SpatialGradient.swift */,
+				694443B12C22D6EC0012D058 /* Descripter.swift */,
 				69557C522C2144F9004C63A3 /* GradientWithTime.swift */,
 				6912FD062C1FFA7B002BCEAD /* SpatialProcessingView.swift */,
 				69557C5B2C214C22004C63A3 /* TimeProcessingView.swift */,
@@ -178,6 +186,7 @@
 				69B711A82C10743600C85DFF /* GrayscaleShader.metal */,
 				69557C502C213735004C63A3 /* TimeGradient.metal */,
 				69557C5F2C2198D6004C63A3 /* QuantizeGradient.metal */,
+				694443AF2C22D2B40012D058 /* Descriptor.metal */,
 			);
 			path = shader;
 			sourceTree = "<group>";
@@ -255,6 +264,7 @@
 				696E04542C0EC08B00DF649D /* SpatialGradient.metal in Sources */,
 				69557C5C2C214C22004C63A3 /* TimeProcessingView.swift in Sources */,
 				69557C622C219B37004C63A3 /* quantize.swift in Sources */,
+				694443B22C22D6EC0012D058 /* Descripter.swift in Sources */,
 				699823012C11AEF900A2B485 /* ContentView.swift in Sources */,
 				69B711AB2C10746200C85DFF /* MetalView_test2_3.swift in Sources */,
 				69557C5E2C217FB3004C63A3 /* QuantizeGradients.swift in Sources */,
@@ -263,7 +273,9 @@
 				6912FD0B2C2031DB002BCEAD /* GrayConverterSingleChannel.swift in Sources */,
 				696E045B2C0EC44F00DF649D /* MetalView_test2_2.swift in Sources */,
 				69B711A92C10743600C85DFF /* GrayscaleShader.metal in Sources */,
+				699ADCF92C22E87B00BD63AE /* block_quantize.swift in Sources */,
 				69557C532C2144F9004C63A3 /* GradientWithTime.swift in Sources */,
+				694443B02C22D2B40012D058 /* Descriptor.metal in Sources */,
 				69D9CF8F2C0C1FB90001AE0C /* ContentView_2.swift in Sources */,
 				69D9CF912C0C1FB90001AE0C /* Item.swift in Sources */,
 				69D9CF8D2C0C1FB90001AE0C /* SportsCoachApp.swift in Sources */,

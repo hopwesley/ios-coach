@@ -37,9 +37,9 @@ let icosahedronCenterP = icosahedronCenterPPart1 + icosahedronCenterPPart2 + ico
 
 
 func quantizeGradients(device: MTLDevice, commandQueue: MTLCommandQueue,
-                                pipelineState: MTLComputePipelineState,
-                                grayBufferX: MTLBuffer, grayBufferY: MTLBuffer, grayBufferT: MTLBuffer,
-                                width: Int, height: Int) -> MTLBuffer? {
+                       pipelineState: MTLComputePipelineState,
+                       grayBufferX: MTLBuffer, grayBufferY: MTLBuffer, grayBufferT: MTLBuffer,
+                       width: Int, height: Int) -> MTLBuffer? {
         guard let commandBuffer = commandQueue.makeCommandBuffer() else {
                 print("Failed to create command buffer.")
                 return nil
@@ -87,3 +87,4 @@ func quantizeGradients(device: MTLDevice, commandQueue: MTLCommandQueue,
         
         return outputBuffer
 }
+
