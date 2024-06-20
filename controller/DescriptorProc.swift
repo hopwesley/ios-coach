@@ -158,14 +158,20 @@ class DescriptorProc: ObservableObject {
                         }
                 }
                 
-                guard let finalQuantity = blockAvgGradientQuantize(device: device, commandQueue: commandQueue, pipelineState: quantizePipelineState,
-                                                                    gradientX: gradientX, gradientY: gradientY, gradientT: gradientT,
-                                                                    width: self.videoWidth, height: self.videoHeight,blockSize:32) else{
+                
+                let S_0 = 32
+                let blockSize = S_0/DescriptorParam_M/DescriptorParam_m
+                guard let finalQuantity = blockAvgGradientQuantize(device: device, commandQueue: commandQueue,
+                                                                   pipelineState: quantizePipelineState,
+                                                                   gradientX: gradientX, gradientY: gradientY,
+                                                                   gradientT: gradientT,
+                                                                   width: self.videoWidth, height: self.videoHeight,
+                                                                   blockSize:blockSize) else{
                         print("------>>> computeGradientProjections  failed");
                         return;
                 }
-                let numBlocksX = (self.videoWidth + 32 - 1) / 32
-                let numBlocksY = (self.videoHeight + 32 - 1) / 32
+                let numBlocksX = (self.videoWidth + blockSize - 1) / blockSize
+                let numBlocksY = (self.videoHeight + blockSize - 1) / blockSize
                 saveRawDataToFileWithDepth(fileName: "blockGradientBuffer.json",
                                            buffer: finalQuantity,
                                            width: numBlocksX,
@@ -173,6 +179,7 @@ class DescriptorProc: ObservableObject {
                                            depth: 10,
                                            type: Float.self)
         }
+        
         
         func removeVideo() {
                 videoURL = nil
