@@ -163,7 +163,8 @@ inline void frameGradientByBlock(device const short *gradientX,
 }
 
 kernel void frameQValByBlock(
-                             texture2d<float, access::read> rawImgTexture [[texture(0)]],
+                             texture2d<float, access::read> frameA [[texture(0)]],
+                             texture2d<float, access::read> frameB [[texture(1)]],
                              device uchar* grayBufferA [[buffer(0)]],
                              device uchar* grayBufferB [[buffer(1)]],
                              device short *outGradientX [[buffer(2)]],
@@ -176,8 +177,8 @@ kernel void frameQValByBlock(
                              device float *outputQ [[buffer(9)]],
                              uint2 gid [[thread_position_in_grid]])
 {
-        toGrayFrame(rawImgTexture, grayBufferA, gid, width, height);
-        toGrayFrame(rawImgTexture, grayBufferB, gid, width, height);
+        toGrayFrame(frameA, grayBufferA, gid, width, height);
+        toGrayFrame(frameB, grayBufferB, gid, width, height);
         
         spatialGradient(grayBufferB, outGradientX, outGradientY, width, height, gid);
         timeGradient(grayBufferB, grayBufferA, outGradientT, width, height, gid);

@@ -280,8 +280,9 @@ func clearTemporaryDirectory() {
 
 enum VideoParsingError: Error {
         case noValidVideoTrack
-        case VideoTooLong
+        case videoTooLong
         case failedToLoadDuration
+        case readVideoDataFailed
 }
 
 let constMaxVideoLen = 20.0
@@ -292,8 +293,10 @@ extension VideoParsingError: LocalizedError {
                         return NSLocalizedString("No valid video track was found in the provided URL.", comment: "")
                 case .failedToLoadDuration:
                         return NSLocalizedString("Failed to load the duration of the video.", comment: "")
-                case .VideoTooLong:
+                case .videoTooLong:
                         return NSLocalizedString("Video should be shorter than \(constMaxVideoLen) seconds", comment: "")
+                case .readVideoDataFailed:
+                        return NSLocalizedString("Failed to read video buffer", comment: "")
                 }
         }
 }
