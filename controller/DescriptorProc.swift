@@ -172,7 +172,7 @@ class DescriptorProc: ObservableObject {
                 }
                 let numBlocksX = (self.videoWidth + blockSize - 1) / blockSize
                 let numBlocksY = (self.videoHeight + blockSize - 1) / blockSize
-                saveRawDataToFileWithDepth(fileName: "blockGradientBuffer.json",
+                saveRawDataToFileWithDepth(fileName: "gpu_block_gradien_\(S_0).json",
                                            buffer: finalQuantity,
                                            width: numBlocksX,
                                            height: numBlocksY,
@@ -180,7 +180,7 @@ class DescriptorProc: ObservableObject {
                                            type: Float.self)
         }
         
-        
+                
         func removeVideo() {
                 videoURL = nil
                 self.grayscaleImage = nil
