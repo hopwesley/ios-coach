@@ -1,9 +1,6 @@
 #include <metal_stdlib>
 using namespace metal;
 
-// 定义全局变量
-constant uint DescriptorParam_M = 2;
-constant uint DescriptorParam_m = 4;
 constant float threshold = 1.29107;
 
 inline float q_prime_l2_norm(float q_prime[10]) {

@@ -172,35 +172,35 @@ func saveRawDataToFile<T: Numeric & Codable>(fileName: String, buffer: MTLBuffer
 
 
 func saveRawDataToFileWithDepth<T: Numeric & Codable>(fileName: String, buffer: MTLBuffer, width: Int, height: Int, depth: Int, type: T.Type) {
-    let data = buffer.contents()
-    let dataLength = width * height * depth
-    let dataPointer = data.bindMemory(to: T.self, capacity: dataLength)
-    
-    // 将一维数组转换为三维数组
-    var values = [[[T]]](repeating: [[T]](repeating: [T](repeating: 0 as T, count: depth), count: width), count: height)
-    
-    for y in 0..<height {
-        for x in 0..<width {
-            for z in 0..<depth {
-                values[y][x][z] = dataPointer[(y * width * depth) + (x * depth) + z]
-            }
+        let data = buffer.contents()
+        let dataLength = width * height * depth
+        let dataPointer = data.bindMemory(to: T.self, capacity: dataLength)
+        
+        // 将一维数组转换为三维数组
+        var values = [[[T]]](repeating: [[T]](repeating: [T](repeating: 0 as T, count: depth), count: width), count: height)
+        
+        for y in 0..<height {
+                for x in 0..<width {
+                        for z in 0..<depth {
+                                values[y][x][z] = dataPointer[(y * width * depth) + (x * depth) + z]
+                        }
+                }
         }
-    }
-    
-    // 将三维数组转换为 JSON 数据
-    guard let jsonData = try? JSONEncoder().encode(values) else {
-        print("Error encoding buffer to JSON")
-        return
-    }
-    
-    let tempDirectory = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-    let fileURL = tempDirectory.appendingPathComponent(fileName)
-    do {
-        try jsonData.write(to: fileURL, options: .atomic)
-        print("Buffer saved to file: \(fileURL)")
-    } catch {
-        print("Error saving buffer to file: \(error)")
-    }
+        
+        // 将三维数组转换为 JSON 数据
+        guard let jsonData = try? JSONEncoder().encode(values) else {
+                print("Error encoding buffer to JSON")
+                return
+        }
+        
+        let tempDirectory = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+        let fileURL = tempDirectory.appendingPathComponent(fileName)
+        do {
+                try jsonData.write(to: fileURL, options: .atomic)
+                print("Buffer saved to file: \(fileURL)")
+        } catch {
+                print("Error saving buffer to file: \(error)")
+        }
 }
 
 
@@ -278,3 +278,22 @@ func clearTemporaryDirectory() {
         }
 }
 
+enum VideoParsingError: Error {
+        case noValidVideoTrack
+        case VideoTooLong
+        case failedToLoadDuration
+}
+
+let constMaxVideoLen = 20.0
+extension VideoParsingError: LocalizedError {
+        var errorDescription: String? {
+                switch self {
+                case .noValidVideoTrack:
+                        return NSLocalizedString("No valid video track was found in the provided URL.", comment: "")
+                case .failedToLoadDuration:
+                        return NSLocalizedString("Failed to load the duration of the video.", comment: "")
+                case .VideoTooLong:
+                        return NSLocalizedString("Video should be shorter than \(constMaxVideoLen) seconds", comment: "")
+                }
+        }
+}
