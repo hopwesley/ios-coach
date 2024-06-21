@@ -1,15 +1,7 @@
-//
-//  TimeAlign.metal
-//  SportsCoach
-//
-//  Created by wesley on 2024/6/21.
-//
-
 #include <metal_stdlib>
 using namespace metal;
 
 constant float threshold = 1.29107;
-
 
 inline void toGrayFrame(texture2d<float, access::read> inTexture,
                         device uchar* grayBuffer,
@@ -70,8 +62,7 @@ inline void spatialGradient(device uchar *grayBuffer,
         outGradientY[gid.y * width + gid.x] = gradientY;
 }
 
-
-inline void timeGridient(device uchar *grayFrameA,
+inline void timeGradient(device uchar *grayFrameA,
                          device uchar *grayFrameB,
                          device uchar *outputBuffer,
                          uint width,
@@ -90,6 +81,7 @@ inline void timeGridient(device uchar *grayFrameA,
         
         outputBuffer[index] = diff;
 }
+
 inline float q_prime_l2_norm(float q_prime[10]) {
         float norm = 0.0;
         for (int i = 0; i < 10; ++i) {
@@ -114,7 +106,7 @@ inline void quantizeBlockHistogram(
         float q_prime[10];  // 计算投影结果 q_i
         for (int i = 0; i < 10; ++i) {
                 float bin_i = dot(P[i], g_normalized);
-                float bin_j = dot(P[i+10], g_normalized);
+                float bin_j = dot(P[i + 10], g_normalized);
                 q_prime[i] = fabs(bin_i) + fabs(bin_j) - threshold;
                 q_prime[i] = max(q_prime[i], 0.0);
         }
@@ -129,17 +121,15 @@ inline void quantizeBlockHistogram(
         }
 }
 
-
-inline void frameGridientByBlock( device const short *gradientX,
+inline void frameGradientByBlock(device const short *gradientX,
                                  device const short *gradientY,
                                  device const uchar *gradientT,
                                  device float *outputQ,
                                  constant float3 *P,
                                  uint width,
                                  uint height,
-                                 uint  blockSize,
-                                 uint2 gid
-                                 )
+                                 uint blockSize,
+                                 uint2 gid)
 {
         // 计算当前线程负责的区域的起始坐标
         uint blockStartX = gid.x * blockSize;
@@ -181,17 +171,16 @@ kernel void frameQValByBlock(
                              device uchar *outGradientT [[buffer(4)]],
                              constant uint &width [[buffer(5)]],
                              constant uint &height [[buffer(6)]],
-                             constant float3 *P [[ buffer(7) ]],
-                             constant uint &blockSize [[ buffer(8) ]],
-                             device float *outputQ [[ buffer(9) ]],
+                             constant float3 *P [[buffer(7)]],
+                             constant uint &blockSize [[buffer(8)]],
+                             device float *outputQ [[buffer(9)]],
                              uint2 gid [[thread_position_in_grid]])
 {
         toGrayFrame(rawImgTexture, grayBufferA, gid, width, height);
         toGrayFrame(rawImgTexture, grayBufferB, gid, width, height);
         
         spatialGradient(grayBufferB, outGradientX, outGradientY, width, height, gid);
+        timeGradient(grayBufferB, grayBufferA, outGradientT, width, height, gid);
         
-        timeGridient(grayBufferB, grayBufferA, outGradientT, width, height, gid);
-        
-        frameGridientByBlock(outGradientX,outGradientY,outGradientT,outputQ,P,width, height,blockSize,gid);
+        frameGradientByBlock(outGradientX, outGradientY, outGradientT, outputQ, P, width, height, blockSize, gid);
 }
