@@ -56,7 +56,11 @@ func blockAvgGradientQuantize(device: MTLDevice, commandQueue: MTLCommandQueue,
         computeEncoder.setBytes(&bSize, length: MemoryLayout<Int>.size, index: 7)
         
         let threadGroupSize = MTLSize(width: DescriptorParam_M * DescriptorParam_m, height: DescriptorParam_M * DescriptorParam_m, depth: 1)
-        let threadGroups = MTLSize(width: numBlocksX, height: numBlocksY, depth: 1)
+        let threadGroups = MTLSize(
+                width: (numBlocksX + DescriptorParam_M * DescriptorParam_m - 1) / (DescriptorParam_M * DescriptorParam_m),
+                height: (numBlocksY + DescriptorParam_M * DescriptorParam_m - 1) / (DescriptorParam_M * DescriptorParam_m),
+                depth: 1
+        )
         
         computeEncoder.dispatchThreadgroups(threadGroups, threadsPerThreadgroup: threadGroupSize)
         computeEncoder.endEncoding()

@@ -141,6 +141,18 @@ class DescriptorProc: ObservableObject {
                         return;
                 }
                 
+                saveRawDataToFile(fileName: "grayBufferA.json",
+                                  buffer: grayFrameA,
+                                  width: self.videoWidth,
+                                  height: self.videoHeight,
+                                  type: UInt8.self)
+                
+                saveRawDataToFile(fileName: "grayBufferB.json",
+                                  buffer: grayFrameB,
+                                  width: self.videoWidth,
+                                  height: self.videoHeight,
+                                  type: UInt8.self)
+                
                 guard let gradientT = timeGradient(device: device, commandQueue: commandQueue, pipelineState: timePipelineState, grayFrameA: grayFrameA, grayFrameB: grayFrameB, width: self.videoWidth, height: self.videoHeight) else{
                         print("------>>> timeGradient for gradientX failed");
                         return;
@@ -172,7 +184,7 @@ class DescriptorProc: ObservableObject {
                 }
                 let numBlocksX = (self.videoWidth + blockSize - 1) / blockSize
                 let numBlocksY = (self.videoHeight + blockSize - 1) / blockSize
-                saveRawDataToFileWithDepth(fileName: "gpu_block_gradien_\(S_0).json",
+                saveRawDataToFileWithDepth(fileName: "gpu_block_gradient_\(S_0).json",
                                            buffer: finalQuantity,
                                            width: numBlocksX,
                                            height: numBlocksY,

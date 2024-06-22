@@ -15,7 +15,6 @@ class AlignController: ObservableObject {
         
         var videoWidth:Double = 0
         var videoHeight:Double = 0
-        var videoTrack: AVAssetTrack!
         
         var device: MTLDevice!
         var commandQueue: MTLCommandQueue!
@@ -65,8 +64,6 @@ class AlignController: ObservableObject {
                 guard let videoTrack = try await asset.loadTracks(withMediaType: .video).first else {
                         throw VideoParsingError.noValidVideoTrack
                 }
-                
-                self.videoTrack = videoTrack
                 let videoSize = try await videoTrack.load(.naturalSize)
                 self.videoWidth = videoSize.width
                 self.videoHeight = videoSize.height
@@ -102,9 +99,10 @@ class AlignController: ObservableObject {
         }
         
         func AlignVideo(){
+                
                 Task{
                         do{
-                                try tryAlignFirstImg()
+                                try await calculateFrameQuantizedAverageGradient()
                         }catch{
                                 DispatchQueue.main.async {
                                         self.videoInfo =  error.localizedDescription
@@ -113,23 +111,30 @@ class AlignController: ObservableObject {
                 }
         }
         
-        private func tryAlignFirstImg() throws{
+        private func calculateFrameQuantizedAverageGradient() async throws{
+                guard let url = self.videoURL else{
+                        return;
+                }
                 
-                let trackOutput = AVAssetReaderTrackOutput(track: self.videoTrack, outputSettings: [
+                let asset = AVAsset(url: url)
+                let reader = try AVAssetReader(asset: asset)
+                guard let videoTrack = try await asset.loadTracks(withMediaType: .video).first else {
+                        throw VideoParsingError.noValidVideoTrack
+                }
+                
+                let trackReaderOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: [
                         (kCVPixelBufferPixelFormatTypeKey as String): Int(kCVPixelFormatType_32BGRA)
                 ])
-                let asset = AVAsset(url: self.videoURL!)
-                let reader = try AVAssetReader(asset: asset)
-                reader.add(trackOutput)
+                reader.add(trackReaderOutput)
                 reader.startReading()
                 //                        while let sampleBuffer = trackReaderOutput.copyNextSampleBuffer() {
                 // 读取视频的第一个帧数据
-                guard let sampleBufferA = trackOutput.copyNextSampleBuffer(),
+                guard let sampleBufferA = trackReaderOutput.copyNextSampleBuffer(),
                       let pixelBufferA = CMSampleBufferGetImageBuffer(sampleBufferA),
                       let textA = pixelBufferToTexture(videoFrame: pixelBufferA) else{
                         throw VideoParsingError.readVideoDataFailed
                 }
-                guard let sampleBufferB = trackOutput.copyNextSampleBuffer(),
+                guard let sampleBufferB = trackReaderOutput.copyNextSampleBuffer(),
                       let pixelBufferB = CMSampleBufferGetImageBuffer(sampleBufferB),
                       let textB = pixelBufferToTexture(videoFrame: pixelBufferB) else{
                         throw VideoParsingError.readVideoDataFailed
@@ -137,25 +142,16 @@ class AlignController: ObservableObject {
                 
                 let S_0 = 32
                 let blockSize = S_0/DescriptorParam_M/DescriptorParam_m
-                guard let finalQuantity = quantizeFrameByBlockGradient(device: device,
-                                                                       commandQueue: commandQueue,
-                                                                       pipelineState: alignPipelineState,
-                                                                       rawImgA: textA,
-                                                                       rawImgB: textB,
-                                                                       width: Int(self.videoWidth),
-                                                                       height: Int(self.videoHeight),
-                                                                       blockSize:blockSize) else{
+                guard quantizeFrameByBlockGradient(device: device,
+                                                   commandQueue: commandQueue,
+                                                   pipelineState: alignPipelineState,
+                                                   rawImgA: textA,
+                                                   rawImgB: textB,
+                                                   width: Int(self.videoWidth),
+                                                   height: Int(self.videoHeight),
+                                                   blockSize:blockSize) != nil else{
                         print("------>>> computeGradientProjections  failed");
                         return;
                 }
-                let numBlocksX = (Int(self.videoWidth) + blockSize - 1) / blockSize
-                let numBlocksY = (Int(self.videoHeight) + blockSize - 1) / blockSize
-                saveRawDataToFileWithDepth(fileName: "gpu_block_gradient_\(S_0).json",
-                                           buffer: finalQuantity,
-                                           width: numBlocksX,
-                                           height: numBlocksY,
-                                           depth: 10,
-                                           type: Float.self)
-                
         }
 }

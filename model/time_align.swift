@@ -15,7 +15,6 @@ func videoCihper(url:URL,offset:Int32){
         
 }
 
-
 func quantizeFrameByBlockGradient(device: MTLDevice, commandQueue: MTLCommandQueue,
                                   pipelineState: MTLComputePipelineState,
                                   rawImgA:MTLTexture,rawImgB:MTLTexture,
@@ -29,41 +28,28 @@ func quantizeFrameByBlockGradient(device: MTLDevice, commandQueue: MTLCommandQue
         }
         
         let size = width * height
-        
-        // Create buffer to store grayscale values
-        guard let grayBufferA = device.makeBuffer(length: size * MemoryLayout<UInt8>.size, options: .storageModeShared) else {
-                print("Error: Failed to create gray buffer")
-                return nil
-        }
-        
-        guard let grayBufferB = device.makeBuffer(length: size * MemoryLayout<UInt8>.size, options: .storageModeShared) else {
-                print("Error: Failed to create gray buffer")
-                return nil
-        }
-        let gradientXBuffer = device.makeBuffer(length: size * MemoryLayout<Int16>.size, options: .storageModeShared)!
-        let gradientYBuffer = device.makeBuffer(length: size * MemoryLayout<Int16>.size, options: .storageModeShared)!
-        
-        guard let gradientTBuffer = device.makeBuffer(length: size * MemoryLayout<UInt8>.size, options: .storageModeShared) else {
-                print("Failed to create output buffer.")
-                return nil
-        }
-        
         let numBlocksX = (width + blockSize - 1) / blockSize
         let numBlocksY = (height + blockSize - 1) / blockSize
         let numBlocks = numBlocksX * numBlocksY
-        // 将P数组传入到buffer
-        guard let outputQBuffer = device.makeBuffer(length: numBlocks * 10 * MemoryLayout<Float>.stride, options: .storageModeShared) else {
-                print("Failed to create output buffer.")
+        let PBufferSize = icosahedronCenterP.count * MemoryLayout<SIMD3<Float>>.stride
+        var w = width
+        var h = height
+        var bSize = blockSize
+        
+        // Create buffer to store grayscale values
+        guard let grayBufferA = device.makeBuffer(length: size * MemoryLayout<UInt8>.size, options: .storageModeShared),
+              let grayBufferB = device.makeBuffer(length: size * MemoryLayout<UInt8>.size, options: .storageModeShared),
+              let gradientXBuffer = device.makeBuffer(length: size * MemoryLayout<Int16>.size, options: .storageModeShared),
+              let gradientYBuffer = device.makeBuffer(length: size * MemoryLayout<Int16>.size, options: .storageModeShared),
+              let gradientTBuffer = device.makeBuffer(length: size * MemoryLayout<UInt8>.size, options: .storageModeShared),
+              let outputQBuffer = device.makeBuffer(length: numBlocks * 10 * MemoryLayout<Float>.stride, options: .storageModeShared),
+              let PBuffer = device.makeBuffer(bytes: icosahedronCenterP, length: PBufferSize, options: .storageModeShared) else {
+                
+                print("Error: Failed to create metal buffer")
                 return nil
         }
         
-        // 初始化outputQBuffer内容为0
         memset(outputQBuffer.contents(), 0, numBlocks * 10 * MemoryLayout<Float>.stride)
-        let PBufferSize = icosahedronCenterP.count * MemoryLayout<SIMD3<Float>>.stride
-        guard let PBuffer = device.makeBuffer(bytes: icosahedronCenterP, length: PBufferSize, options: .storageModeShared) else {
-                print("Failed to create P buffer.")
-                return nil
-        }
         
         computeEncoder.setComputePipelineState(pipelineState)
         computeEncoder.setTexture(rawImgA, index: 0)
@@ -73,9 +59,6 @@ func quantizeFrameByBlockGradient(device: MTLDevice, commandQueue: MTLCommandQue
         computeEncoder.setBuffer(gradientXBuffer, offset: 0, index: 2)
         computeEncoder.setBuffer(gradientYBuffer, offset: 0, index: 3)
         computeEncoder.setBuffer(gradientTBuffer, offset: 0, index: 4)
-        var w = width
-        var h = height
-        var bSize = blockSize
         computeEncoder.setBytes(&w, length: MemoryLayout<Int>.size, index: 5)
         computeEncoder.setBytes(&h, length: MemoryLayout<Int>.size, index: 6)
         computeEncoder.setBuffer(PBuffer, offset: 0, index: 7)
@@ -83,7 +66,13 @@ func quantizeFrameByBlockGradient(device: MTLDevice, commandQueue: MTLCommandQue
         computeEncoder.setBuffer(outputQBuffer, offset: 0, index: 9)
         
         let threadGroupSize = MTLSize(width: DescriptorParam_M * DescriptorParam_m, height: DescriptorParam_M * DescriptorParam_m, depth: 1)
-        let threadGroups = MTLSize(width: numBlocksX, height: numBlocksY, depth: 1)
+        let threadGroups = MTLSize(
+                width: (numBlocksX + DescriptorParam_M * DescriptorParam_m - 1) / (DescriptorParam_M * DescriptorParam_m),
+                height: (numBlocksY + DescriptorParam_M * DescriptorParam_m - 1) / (DescriptorParam_M * DescriptorParam_m),
+                depth: 1
+        )
+        
+        print("numBlocksX=(\(numBlocksX)),numBlocksY=(\(numBlocksY)),width=(\(threadGroups.width),height=(\(threadGroups.height))")
         
         computeEncoder.dispatchThreadgroups(threadGroups, threadsPerThreadgroup: threadGroupSize)
         computeEncoder.endEncoding()
@@ -91,5 +80,41 @@ func quantizeFrameByBlockGradient(device: MTLDevice, commandQueue: MTLCommandQue
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
         
-        return nil
+        saveRawDataToFile(fileName: "grayBufferA.json",
+                          buffer: grayBufferA,
+                          width: w,
+                          height: h,
+                          type: UInt8.self)
+        
+        saveRawDataToFile(fileName: "grayBufferB.json",
+                          buffer: grayBufferB,
+                          width: w,
+                          height: h,
+                          type: UInt8.self)
+        
+        saveRawDataToFile(fileName: "gradientXBuffer.json",
+                          buffer: gradientXBuffer,
+                          width: w,
+                          height: h,
+                          type: Int16.self)
+        
+        saveRawDataToFile(fileName: "gradientYBuffer.json",
+                          buffer: gradientYBuffer,
+                          width: w,
+                          height: h,
+                          type: Int16.self)
+        
+        saveRawDataToFile(fileName: "gradientTBuffer.json",
+                          buffer: gradientTBuffer,
+                          width: w,
+                          height: h,
+                          type: UInt8.self)
+        
+        saveRawDataToFileWithDepth(fileName: "gpu_frame_quantity_\(blockSize).json",
+                                   buffer: outputQBuffer,
+                                   width: numBlocksX,
+                                   height: numBlocksY,
+                                   depth: 10,
+                                   type: Float.self)
+        return outputQBuffer
 }

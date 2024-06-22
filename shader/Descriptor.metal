@@ -11,18 +11,18 @@ inline float q_prime_l2_norm(float q_prime[10]) {
         return sqrt(norm);
 }
 
-void quantizeGradientOfBlock(
-                             float3 g,
+void quantizeHistorgramOfGradient(
+                             float3 gradient,
                              constant float3 *P,
                              device float *outputQ,
                              uint index)
 {
         // 计算 g 的 L2 范数并归一化
-        float g_l2_norm = length(g);
+        float g_l2_norm = length(gradient);
         if (g_l2_norm == 0.0) {
                 return;
         }
-        float3 g_normalized = g / g_l2_norm;
+        float3 g_normalized = gradient / g_l2_norm;
         
         float q_prime[10];  // 计算投影结果 q_i
         for (int i = 0; i < 10; ++i) {
@@ -84,5 +84,5 @@ kernel void averageGradientOfAllBlock(
         // 调用量化梯度计算函数
         uint numBlocksX = (width + blockSize - 1) / blockSize;
         uint avgIndex = gid.y * numBlocksX + gid.x;
-        quantizeGradientOfBlock(sumGradient, P, outputQ, avgIndex);
+        quantizeHistorgramOfGradient(sumGradient, P, outputQ, avgIndex);
 }

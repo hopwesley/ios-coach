@@ -24,6 +24,16 @@ inline void toGrayFrame(texture2d<float, access::read> inTexture,
         grayBuffer[index] = grayUchar;
 }
 
+constant int8_t sobelX[9] = {-1, 0, 1,
+                             -2, 0, 2,
+                             -1, 0, 1};
+
+constant int8_t sobelY[9] = {-1, -2, -1,
+                             0,  0,  0,
+                             1,  2,  1};
+
+
+
 inline void spatialGradient(device uchar *grayBuffer,
                             device short *outGradientX,
                             device short *outGradientY,
@@ -32,16 +42,7 @@ inline void spatialGradient(device uchar *grayBuffer,
                             uint2 gid)
 {
         if (gid.x == 0 || gid.x >= width - 1 || gid.y == 0 || gid.y >= height - 1) return;
-        
-        // Sobel operator weights for X and Y directions
-        int8_t sobelX[9] = {-1, 0, 1,
-                -2, 0, 2,
-                -1, 0, 1};
-        
-        int8_t sobelY[9] = {-1, -2, -1,
-                0,  0,  0,
-                1,  2,  1};
-        
+    
         short gradientX = 0;
         short gradientY = 0;
         
@@ -91,17 +92,17 @@ inline float q_prime_l2_norm(float q_prime[10]) {
 }
 
 inline void quantizeBlockHistogram(
-                                   float3 g,
+                                   float3 avgGradient,
                                    constant float3 *P,
                                    device float *outputQ,
                                    uint index)
 {
         // 计算 g 的 L2 范数并归一化
-        float g_l2_norm = length(g);
+        float g_l2_norm = length(avgGradient);
         if (g_l2_norm == 0.0) {
                 return;
         }
-        float3 g_normalized = g / g_l2_norm;
+        float3 g_normalized = avgGradient / g_l2_norm;
         
         float q_prime[10];  // 计算投影结果 q_i
         for (int i = 0; i < 10; ++i) {
@@ -181,7 +182,7 @@ kernel void frameQValByBlock(
         toGrayFrame(frameB, grayBufferB, gid, width, height);
         
         spatialGradient(grayBufferB, outGradientX, outGradientY, width, height, gid);
-        timeGradient(grayBufferB, grayBufferA, outGradientT, width, height, gid);
+        timeGradient(grayBufferA, grayBufferB, outGradientT, width, height, gid);
         
         frameGradientByBlock(outGradientX, outGradientY, outGradientT, outputQ, P, width, height, blockSize, gid);
 }

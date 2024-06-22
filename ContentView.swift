@@ -17,10 +17,15 @@ struct ContentView: View {
                         }
                         VStack{
                                 Button(action: {
+                                        videoCtlA.AlignVideo()
+                                }) {
+                                        Text("测试帧梯度")
+                                }.frame(width: 160, height: 80).background(Color.gray)
+                                Button(action: {
                                         processingTimeAlign()
                                 }) {
                                         Text("转为灰度")
-                                }
+                                }.frame(width: 160, height: 80).background(Color.gray)
                         }
                 }
         }
