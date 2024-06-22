@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2BCF10C12C2709DE0083BF83 /* common_gradient.metal in Sources */ = {isa = PBXBuildFile; fileRef = 2BCF10C02C2709DE0083BF83 /* common_gradient.metal */; };
 		6912FD052C1FE30F002BCEAD /* SpatialGradient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6912FD042C1FE30F002BCEAD /* SpatialGradient.swift */; };
 		6912FD072C1FFA7B002BCEAD /* SpatialProcessingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6912FD062C1FFA7B002BCEAD /* SpatialProcessingView.swift */; };
 		6912FD092C1FFB74002BCEAD /* GrayProcessingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6912FD082C1FFB74002BCEAD /* GrayProcessingView.swift */; };
@@ -28,7 +29,7 @@
 		696E045B2C0EC44F00DF649D /* MetalView_test2_2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696E045A2C0EC44F00DF649D /* MetalView_test2_2.swift */; };
 		698098D02C25954A00AAE9BC /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 698098CF2C25954A00AAE9BC /* ContentView.swift */; };
 		698098D22C25962400AAE9BC /* AlignController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 698098D12C25962400AAE9BC /* AlignController.swift */; };
-		698098D42C25A31100AAE9BC /* TimeAlign.metal in Sources */ = {isa = PBXBuildFile; fileRef = 698098D32C25A31100AAE9BC /* TimeAlign.metal */; };
+		698098D42C25A31100AAE9BC /* common_quantizeGradient.metal in Sources */ = {isa = PBXBuildFile; fileRef = 698098D32C25A31100AAE9BC /* common_quantizeGradient.metal */; };
 		698098D62C25A51500AAE9BC /* time_align.swift in Sources */ = {isa = PBXBuildFile; fileRef = 698098D52C25A51500AAE9BC /* time_align.swift */; };
 		699823012C11AEF900A2B485 /* StepTryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699823002C11AEF900A2B485 /* StepTryView.swift */; };
 		699ADCF92C22E87B00BD63AE /* block_quantize.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699ADCF82C22E87B00BD63AE /* block_quantize.swift */; };
@@ -48,6 +49,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		2BCF10C02C2709DE0083BF83 /* common_gradient.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = common_gradient.metal; sourceTree = "<group>"; };
 		6912FD042C1FE30F002BCEAD /* SpatialGradient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialGradient.swift; sourceTree = "<group>"; };
 		6912FD062C1FFA7B002BCEAD /* SpatialProcessingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialProcessingView.swift; sourceTree = "<group>"; };
 		6912FD082C1FFB74002BCEAD /* GrayProcessingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrayProcessingView.swift; sourceTree = "<group>"; };
@@ -69,7 +71,7 @@
 		696E045A2C0EC44F00DF649D /* MetalView_test2_2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView_test2_2.swift; sourceTree = "<group>"; };
 		698098CF2C25954A00AAE9BC /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		698098D12C25962400AAE9BC /* AlignController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlignController.swift; sourceTree = "<group>"; };
-		698098D32C25A31100AAE9BC /* TimeAlign.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = TimeAlign.metal; sourceTree = "<group>"; };
+		698098D32C25A31100AAE9BC /* common_quantizeGradient.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = common_quantizeGradient.metal; sourceTree = "<group>"; };
 		698098D52C25A51500AAE9BC /* time_align.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = time_align.swift; sourceTree = "<group>"; };
 		699823002C11AEF900A2B485 /* StepTryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepTryView.swift; sourceTree = "<group>"; };
 		699ADCF82C22E87B00BD63AE /* block_quantize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = block_quantize.swift; sourceTree = "<group>"; };
@@ -194,10 +196,11 @@
 			children = (
 				696E04532C0EC08B00DF649D /* SpatialGradient.metal */,
 				69B711A82C10743600C85DFF /* GrayscaleShader.metal */,
-				698098D32C25A31100AAE9BC /* TimeAlign.metal */,
+				698098D32C25A31100AAE9BC /* common_quantizeGradient.metal */,
 				69557C502C213735004C63A3 /* TimeGradient.metal */,
 				69557C5F2C2198D6004C63A3 /* QuantizeGradient.metal */,
 				694443AF2C22D2B40012D058 /* Descriptor.metal */,
+				2BCF10C02C2709DE0083BF83 /* common_gradient.metal */,
 			);
 			path = shader;
 			sourceTree = "<group>";
@@ -300,6 +303,7 @@
 				696E04542C0EC08B00DF649D /* SpatialGradient.metal in Sources */,
 				69557C5C2C214C22004C63A3 /* TimeProcessingView.swift in Sources */,
 				69557C622C219B37004C63A3 /* quantize.swift in Sources */,
+				2BCF10C12C2709DE0083BF83 /* common_gradient.metal in Sources */,
 				694443B22C22D6EC0012D058 /* DescriptorProc.swift in Sources */,
 				699823012C11AEF900A2B485 /* StepTryView.swift in Sources */,
 				69B711AB2C10746200C85DFF /* MetalView_test2_3.swift in Sources */,
@@ -327,7 +331,7 @@
 				6912FD092C1FFB74002BCEAD /* GrayProcessingView.swift in Sources */,
 				69D9CFA42C0C75290001AE0C /* Shaders.metal in Sources */,
 				69557C602C2198D6004C63A3 /* QuantizeGradient.metal in Sources */,
-				698098D42C25A31100AAE9BC /* TimeAlign.metal in Sources */,
+				698098D42C25A31100AAE9BC /* common_quantizeGradient.metal in Sources */,
 				69557C592C2146DB004C63A3 /* test_util.swift in Sources */,
 				691876092C2285F40016A9B2 /* QuantizeProcessingView.swift in Sources */,
 				698098D22C25962400AAE9BC /* AlignController.swift in Sources */,

@@ -18,16 +18,21 @@ class AlignController: ObservableObject {
         
         var device: MTLDevice!
         var commandQueue: MTLCommandQueue!
-        var alignPipelineState: MTLComputePipelineState!
+        var spacetimeGradientPipeline: MTLComputePipelineState!
+        var quantizeBlockGradientPipleline: MTLComputePipelineState!
         var textureDescriptor:MTLTextureDescriptor!
+        
         init() {
                 device = MTLCreateSystemDefaultDevice()
                 commandQueue = device.makeCommandQueue()
                 
                 let library = device.makeDefaultLibrary()
                 
-                let quantizeFunc = library?.makeFunction(name: "frameQValByBlock")
-                alignPipelineState = try! device.makeComputePipelineState(function: quantizeFunc!)
+                let gradientFunc = library?.makeFunction(name: "spacetimeGradientExtraction")
+                spacetimeGradientPipeline = try! device.makeComputePipelineState(function: gradientFunc!)
+                
+                let quantizeFunc = library?.makeFunction(name: "quantizeAvgerageGradientOfBlock")
+                quantizeBlockGradientPipleline = try! device.makeComputePipelineState(function: quantizeFunc!)
         }
         
         func removeVideo(){
@@ -142,14 +147,15 @@ class AlignController: ObservableObject {
                 
                 let S_0 = 32
                 let blockSize = S_0/DescriptorParam_M/DescriptorParam_m
-                guard quantizeFrameByBlockGradient(device: device,
-                                                   commandQueue: commandQueue,
-                                                   pipelineState: alignPipelineState,
-                                                   rawImgA: textA,
-                                                   rawImgB: textB,
-                                                   width: Int(self.videoWidth),
-                                                   height: Int(self.videoHeight),
-                                                   blockSize:blockSize) != nil else{
+                guard quantizeGradientOfBlockForOneFrame(device: device,
+                                                         commandQueue: commandQueue,
+                                                         spaceTimeGradient: spacetimeGradientPipeline,
+                                                         quantizeGradient:quantizeBlockGradientPipleline,
+                                                         rawImgA: textA,
+                                                         rawImgB: textB,
+                                                         width: Int(self.videoWidth),
+                                                         height: Int(self.videoHeight),
+                                                         blockSize:blockSize) != nil else{
                         print("------>>> computeGradientProjections  failed");
                         return;
                 }
