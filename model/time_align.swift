@@ -16,7 +16,10 @@ func videoCihper(url:URL,offset:Int32){
 }
 
 func quantizeFrameByBlockGradient(device: MTLDevice, commandQueue: MTLCommandQueue,
-                                  pipelineState: MTLComputePipelineState,
+                                  grayPipeline: MTLComputePipelineState,
+                                  spatialPipline: MTLComputePipelineState,
+                                  timePipeline: MTLComputePipelineState,
+                                  framePipeline: MTLComputePipelineState,
                                   rawImgA:MTLTexture,rawImgB:MTLTexture,
                                   width: Int,  height: Int,
                                   blockSize: Int) -> MTLBuffer? {
@@ -51,10 +54,11 @@ func quantizeFrameByBlockGradient(device: MTLDevice, commandQueue: MTLCommandQue
         
         memset(outputQBuffer.contents(), 0, numBlocks * 10 * MemoryLayout<Float>.stride)
         
-        computeEncoder.setComputePipelineState(pipelineState)
+        computeEncoder.setComputePipelineState(grayPipeline)
+        computeEncoder.setBuffer(grayBufferA, offset: 0, index: 0)
+        
         computeEncoder.setTexture(rawImgA, index: 0)
         computeEncoder.setTexture(rawImgB, index: 1)
-        computeEncoder.setBuffer(grayBufferA, offset: 0, index: 0)
         computeEncoder.setBuffer(grayBufferB, offset: 0, index: 1)
         computeEncoder.setBuffer(gradientXBuffer, offset: 0, index: 2)
         computeEncoder.setBuffer(gradientYBuffer, offset: 0, index: 3)
@@ -82,32 +86,32 @@ func quantizeFrameByBlockGradient(device: MTLDevice, commandQueue: MTLCommandQue
         
         saveRawDataToFile(fileName: "grayBufferA.json",
                           buffer: grayBufferA,
-                          width: w,
-                          height: h,
+                          width: width,
+                          height: height,
                           type: UInt8.self)
         
         saveRawDataToFile(fileName: "grayBufferB.json",
                           buffer: grayBufferB,
-                          width: w,
-                          height: h,
+                          width: width,
+                          height: height,
                           type: UInt8.self)
         
         saveRawDataToFile(fileName: "gradientXBuffer.json",
                           buffer: gradientXBuffer,
-                          width: w,
-                          height: h,
+                          width: width,
+                          height: height,
                           type: Int16.self)
         
         saveRawDataToFile(fileName: "gradientYBuffer.json",
                           buffer: gradientYBuffer,
-                          width: w,
-                          height: h,
+                          width: width,
+                          height: height,
                           type: Int16.self)
         
         saveRawDataToFile(fileName: "gradientTBuffer.json",
                           buffer: gradientTBuffer,
-                          width: w,
-                          height: h,
+                          width: width,
+                          height: height,
                           type: UInt8.self)
         
         saveRawDataToFileWithDepth(fileName: "gpu_frame_quantity_\(blockSize).json",
