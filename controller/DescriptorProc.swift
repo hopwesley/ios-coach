@@ -129,6 +129,18 @@ class DescriptorProc: ObservableObject {
                         return;
                 }
                 
+                saveRawDataToFile(fileName: "gpu_test_gradientXBuffer.json",
+                                  buffer: gradientX,
+                                  width: self.videoWidth,
+                                  height: self.videoHeight,
+                                  type: Int16.self)
+                
+                saveRawDataToFile(fileName: "gpu_test_gradientYBuffer.json",
+                                  buffer: gradientY,
+                                  width: self.videoWidth,
+                                  height: self.videoHeight,
+                                  type: Int16.self)
+                
                 // 读取视频的第二个帧数据
                 guard let sampleBufferB = trackOutput.copyNextSampleBuffer(),
                       let pixelBufferB = CMSampleBufferGetImageBuffer(sampleBufferB) else{
@@ -192,7 +204,7 @@ class DescriptorProc: ObservableObject {
                                            type: Float.self)
         }
         
-                
+        
         func removeVideo() {
                 videoURL = nil
                 self.grayscaleImage = nil

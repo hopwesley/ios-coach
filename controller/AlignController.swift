@@ -19,7 +19,8 @@ class AlignController: ObservableObject {
         var device: MTLDevice!
         var commandQueue: MTLCommandQueue!
         var spacetimeGradientPipeline: MTLComputePipelineState!
-        var quantizeBlockGradientPipleline: MTLComputePipelineState!
+        var quantizeBlockGradientPipeline: MTLComputePipelineState!
+        var sumGradientsPipeline:MTLComputePipelineState!
         var textureDescriptor:MTLTextureDescriptor!
         
         init() {
@@ -32,7 +33,10 @@ class AlignController: ObservableObject {
                 spacetimeGradientPipeline = try! device.makeComputePipelineState(function: gradientFunc!)
                 
                 let quantizeFunc = library?.makeFunction(name: "quantizeAvgerageGradientOfBlock")
-                quantizeBlockGradientPipleline = try! device.makeComputePipelineState(function: quantizeFunc!)
+                quantizeBlockGradientPipeline = try! device.makeComputePipelineState(function: quantizeFunc!)
+                
+                let sumFunc = library?.makeFunction(name: "sumQuantizedGradients")
+                sumGradientsPipeline = try! device.makeComputePipelineState(function: sumFunc!)
         }
         
         func removeVideo(){
@@ -150,7 +154,8 @@ class AlignController: ObservableObject {
                 guard quantizeGradientOfBlockForOneFrame(device: device,
                                                          commandQueue: commandQueue,
                                                          spaceTimeGradient: spacetimeGradientPipeline,
-                                                         quantizeGradient:quantizeBlockGradientPipleline,
+                                                         quantizeGradient:quantizeBlockGradientPipeline,
+                                                         sumGradients: sumGradientsPipeline,
                                                          rawImgA: textA,
                                                          rawImgB: textB,
                                                          width: Int(self.videoWidth),

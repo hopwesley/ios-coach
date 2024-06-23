@@ -87,8 +87,7 @@ kernel void sobelGradientAnswer(device uchar *grayBuffer [[buffer(0)]],
                         idx++;
                 }
         }
-        
-        // Write the computed gradients to the output buffers as signed 16-bit integers
+      
         outGradientX[gid.y * width + gid.x] = gradientX;
         outGradientY[gid.y * width + gid.x] = gradientY;
 }

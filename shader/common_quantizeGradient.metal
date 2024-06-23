@@ -14,7 +14,7 @@ inline float q_prime_l2_norm(float q_prime[10]) {
 inline void quantizeBlockHistogram(
                                    float3 avgGradient,
                                    constant float3 *P,
-                                   device float *outputQ,
+                                   device float *quantizeGradient,
                                    uint index)
 {
         // 计算 g 的 L2 范数并归一化
@@ -38,20 +38,21 @@ inline void quantizeBlockHistogram(
         }
         
         for (int i = 0; i < 10; ++i) {
-                outputQ[index * 10 + i] = (g_l2_norm * q_prime[i]) / q_prime_l2_len;
+                quantizeGradient[index * 10 + i] = (g_l2_norm * q_prime[i]) / q_prime_l2_len;
         }
 }
 
 kernel void quantizeAvgerageGradientOfBlock(
-                                 device short* gradientX [[buffer(0)]],
-                                 device short* gradientY [[buffer(1)]],
-                                 device uchar* gradientT [[buffer(2)]],
-                                 device float* outputQ [[buffer(3)]],
-                                 constant float3* P [[buffer(4)]],
-                                 constant uint &width [[buffer(5)]],
-                                 constant uint &height [[buffer(6)]],
-                                 constant uint &blockSize [[buffer(7)]],
-                                 uint2 gid [[thread_position_in_grid]])
+                                            device short* gradientX [[buffer(0)]],
+                                            device short* gradientY [[buffer(1)]],
+                                            device uchar* gradientT [[buffer(2)]],
+                                            device float* avgGradientOneFrame [[buffer(3)]],
+                                            constant float3* P [[buffer(4)]],
+                                            constant uint &width [[buffer(5)]],
+                                            constant uint &height [[buffer(6)]],
+                                            constant uint &blockSize [[buffer(7)]],
+                                            device float* gradientOfFrame [[buffer(8)]],
+                                            uint2 gid [[thread_position_in_grid]])
 {
         uint blockStartX = gid.x * blockSize;
         uint blockStartY = gid.y * blockSize;
@@ -68,5 +69,21 @@ kernel void quantizeAvgerageGradientOfBlock(
         if (count > 0) sumGradient /= float(count);
         uint numBlocksX = (width + blockSize - 1) / blockSize;
         uint avgIndex = gid.y * numBlocksX + gid.x;
-        quantizeBlockHistogram(sumGradient, P, outputQ, avgIndex);
+        quantizeBlockHistogram(sumGradient, P, avgGradientOneFrame, avgIndex);
+}
+
+
+kernel void sumQuantizedGradients(
+                                  device float* avgGradientOneFrame [[buffer(0)]],
+                                  device float* finalGradient [[buffer(1)]],
+                                  constant uint &numBlocks [[buffer(2)]],
+                                  uint gid [[thread_position_in_grid]])
+{
+        if (gid >= 10) return; 
+        
+        float sum = 0.0;
+        for (uint i = 0; i < numBlocks; ++i) {
+                sum += avgGradientOneFrame[i * 10 + gid];
+        }
+        finalGradient[gid] = sum;
 }

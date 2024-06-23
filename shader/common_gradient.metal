@@ -8,7 +8,6 @@
 #include <metal_stdlib>
 using namespace metal;
 
-
 constant int8_t sobelX[9] = {-1, 0, 1,
         -2, 0, 2,
         -1, 0, 1};
@@ -40,25 +39,29 @@ inline void spatialGradient(device uchar *grayBufferCur,
                             uint height,
                             uint2 gid)
 {
+        int idx = gid.y * width + gid.x;
+        uchar diff = abs(grayBufferCur[idx] - grayBufferPre[idx]);
+        outGradientT[idx] = diff;
         
         if (gid.x == 0 || gid.x >= width - 1 || gid.y == 0 || gid.y >= height - 1) return;
-        short gradientX = 0, gradientY = 0;
-        int idx = 0;
+        
+        short gradientX = 0.0, gradientY = 0.0;
+        
+        idx = 0;
         for (int j = -1; j <= 1; j++) {
                 for (int i = -1; i <= 1; i++) {
                         uint index = (gid.y + j) * width + (gid.x + i);
-                        float gray = short(grayBufferCur[index]);
+                        float gray = short(grayBufferPre[index]);
                         gradientX += gray * sobelX[idx];
                         gradientY += gray * sobelY[idx];
                         idx++;
                 }
         }
         
-        uint index = gid.y * width + gid.x;
-        uchar diff = abs(grayBufferCur[index] - grayBufferPre[index]);
-        outGradientT[index] = diff;
         outGradientX[gid.y * width + gid.x] = gradientX;
         outGradientY[gid.y * width + gid.x] = gradientY;
+        
+        
 }
 
 kernel void spacetimeGradientExtraction(
