@@ -16,28 +16,15 @@ constant int8_t sobelY[9] = {-1, -2, -1,
         0,  0,  0,
         1,  2,  1};
 
-inline void toGrayFrame(texture2d<float, access::read> inTexture,
-                        device uchar* grayBuffer,
-                        uint2 gid,
-                        uint width,
-                        uint height)
-{
-        
-        if (gid.x >= width || gid.y >= height) return;
-        uint flippedY = height - 1 - gid.y;
-        float4 color = inTexture.read(uint2(gid.x, flippedY));
-        float gray = dot(color.rgb, float3(0.299, 0.587, 0.114));
-        grayBuffer[gid.y * width + gid.x] = uchar(gray * 255.0);
-}
-
-inline void spatialGradient(device uchar *grayBufferCur,
-                            device uchar *grayBufferPre,
-                            device short *outGradientX,
-                            device short *outGradientY,
-                            device uchar *outGradientT,
-                            uint width,
-                            uint height,
-                            uint2 gid)
+kernel void spacetimeGradientExtraction(
+                            device uchar* grayBufferPre [[buffer(0)]],
+                            device uchar* grayBufferCur [[buffer(1)]],
+                            device short* outGradientX [[buffer(2)]],
+                            device short* outGradientY [[buffer(3)]],
+                            device uchar* outGradientT [[buffer(4)]],
+                            constant uint &width [[buffer(5)]],
+                            constant uint &height [[buffer(6)]],
+                            uint2 gid [[thread_position_in_grid]])
 {
         int idx = gid.y * width + gid.x;
         uchar diff = abs(grayBufferCur[idx] - grayBufferPre[idx]);
@@ -60,23 +47,4 @@ inline void spatialGradient(device uchar *grayBufferCur,
         
         outGradientX[gid.y * width + gid.x] = gradientX;
         outGradientY[gid.y * width + gid.x] = gradientY;
-        
-        
-}
-
-kernel void spacetimeGradientExtraction(
-                                        texture2d<float, access::read> framePrevious [[texture(0)]],
-                                        texture2d<float, access::read> frameCurrent [[texture(1)]],
-                                        device uchar* grayBufferPre [[buffer(0)]],
-                                        device uchar* grayBufferCur [[buffer(1)]],
-                                        device short* outGradientX [[buffer(2)]],
-                                        device short* outGradientY [[buffer(3)]],
-                                        device uchar* outGradientT [[buffer(4)]],
-                                        constant uint &width [[buffer(5)]],
-                                        constant uint &height [[buffer(6)]],
-                                        uint2 gid [[thread_position_in_grid]])
-{
-        toGrayFrame(framePrevious, grayBufferPre, gid, width, height);
-        toGrayFrame(frameCurrent, grayBufferCur, gid, width, height);
-        spatialGradient(grayBufferCur,grayBufferPre,outGradientX,outGradientY,outGradientT,width,height,gid);
 }

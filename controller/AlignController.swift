@@ -151,18 +151,27 @@ class AlignController: ObservableObject {
                 
                 let S_0 = 32
                 let blockSize = S_0/DescriptorParam_M/DescriptorParam_m
-                guard quantizeGradientOfBlockForOneFrame(device: device,
-                                                         commandQueue: commandQueue,
-                                                         spaceTimeGradient: spacetimeGradientPipeline,
-                                                         quantizeGradient:quantizeBlockGradientPipeline,
-                                                         sumGradients: sumGradientsPipeline,
-                                                         rawImgA: textA,
-                                                         rawImgB: textB,
-                                                         width: Int(self.videoWidth),
-                                                         height: Int(self.videoHeight),
-                                                         blockSize:blockSize) != nil else{
-                        print("------>>> computeGradientProjections  failed");
+                
+                guard  histogramFromBlockForOneFrame(device: device,
+                                            commandQueue: commandQueue,rawImgA: textA,
+                                            rawImgB: textB,
+                                            width: Int(self.videoWidth),
+                                            height: Int(self.videoHeight)) != nil else{
                         return;
                 }
+                
+//                guard quantizeGradientOfBlockForOneFrame(device: device,
+//                                                         commandQueue: commandQueue,
+//                                                         spaceTimeGradient: spacetimeGradientPipeline,
+//                                                         quantizeGradient:quantizeBlockGradientPipeline,
+//                                                         sumGradients: sumGradientsPipeline,
+//                                                         rawImgA: textA,
+//                                                         rawImgB: textB,
+//                                                         width: Int(self.videoWidth),
+//                                                         height: Int(self.videoHeight),
+//                                                         blockSize:blockSize) != nil else{
+//                        print("------>>> computeGradientProjections  failed");
+//                        return;
+//                }
         }
 }
