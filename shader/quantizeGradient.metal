@@ -71,19 +71,3 @@ kernel void quantizeAvgerageGradientOfBlock(
         uint avgIndex = gid.y * numBlocksX + gid.x;
         quantizeBlockHistogram(sumGradient, P, avgGradientOneFrame, avgIndex);
 }
-
-
-kernel void sumQuantizedGradients(
-                                  device float* avgGradientOneFrame [[buffer(0)]],
-                                  device float* finalGradient [[buffer(1)]],
-                                  constant uint &numBlocks [[buffer(2)]],
-                                  uint gid [[thread_position_in_grid]])
-{
-        if (gid >= 10) return; 
-        
-        float sum = 0.0;
-        for (uint i = 0; i < numBlocks; ++i) {
-                sum += avgGradientOneFrame[i * 10 + gid];
-        }
-        finalGradient[gid] = sum;
-}
