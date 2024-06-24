@@ -160,6 +160,28 @@ func saveRawDataToFile<T: Numeric & Codable>(fileName: String, buffer: MTLBuffer
                 print("Error encoding gray buffer to JSON")
                 return
         }
+        
+        dataToTmpFile(fileName: fileName, jsonData: jsonData)
+}
+
+func saveHistogramAsJSON(histogram: [MTLBuffer], fileName: String) {
+        var histogramData = [[Float]]()
+        
+        for buffer in histogram {
+            let length = buffer.length / MemoryLayout<Float>.size
+            let pointer = buffer.contents().bindMemory(to: Float.self, capacity: length)
+            let array = Array(UnsafeBufferPointer(start: pointer, count: length))
+            histogramData.append(array)
+        }
+        guard let jsonData = try? JSONEncoder().encode(histogramData) else {
+                print("Error encoding gray buffer to JSON")
+                return
+        }
+        
+        dataToTmpFile(fileName: fileName, jsonData: jsonData)
+    }
+
+func dataToTmpFile(fileName:String, jsonData:Data){
         let tempDirectory = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
         let fileURL = tempDirectory.appendingPathComponent(fileName)
         do {

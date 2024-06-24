@@ -5,10 +5,10 @@ import PhotosUI
 
 
 struct ContentView: View {
-        
-        @StateObject private var videoCtlA = AlignController()
-        @StateObject private var videoCtlB = AlignController()
-        
+        @State private var errorInfo = ""
+        @State private var processingTime: Double? = nil
+        @StateObject private var videoCtlA = VideoAlignment()
+        @StateObject private var videoCtlB = VideoAlignment()
         var body: some View {
                 ScrollView {
                         VStack {
@@ -17,39 +17,85 @@ struct ContentView: View {
                         }
                         VStack{
                                 Button(action: {
-                                        videoCtlA.AlignVideo()
+                                        videoCtlA.DebugAlignVideo()
                                 }) {
-                                        Text("测试帧梯度")
+                                        Text("Test")
                                 }.frame(width: 160, height: 80).background(Color.gray)
+                                
                                 Button(action: {
                                         processingTimeAlign()
                                 }) {
-                                        Text("转为灰度")
+                                        Text("对齐")
                                 }.frame(width: 160, height: 80).background(Color.gray)
+                                
+                                Text(errorInfo)
+                                if let time = processingTime {
+                                        Text("Processing time: \(time, specifier: "%.2f") seconds")
+                                }
                         }
+                        
                 }
         }
         
         func processingTimeAlign(){
-                
-                guard let histogramA = videoCtlA.histogramOfAllFrame(),
-                      let  histogramB = videoCtlB.histogramOfAllFrame() else{
+                guard videoCtlA.videoURL != nil, videoCtlB.videoURL != nil else{
+                        print("need 2 video to be compared")
                         return
                 }
                 
-                guard let (offsetA,offsetB) = findBestAlingOffset(histoA: histogramA, histoB: histogramB) else{
-                        return;
-                }
+                let startTime = Date()
                 
-                videoCihper(url:videoCtlA.videoURL!,offset:offsetA)
-                videoCihper(url:videoCtlB.videoURL!,offset:offsetB)
+                var histogramOfA:[MTLBuffer]? = nil
+                var histogramOfB:[MTLBuffer]? = nil
+                let group = DispatchGroup()
+                
+                group.enter()
+                videoCtlA.AlignVideo { result in
+                        switch result {
+                        case .success(let buffer):
+                                histogramOfA = buffer
+                        case .failure(let error):
+                                self.errorInfo = "Failed to align video A: \(error.localizedDescription)"
+                        }
+                        group.leave()
+                }
+                group.enter()
+                videoCtlB.AlignVideo { result in
+                        switch result {
+                        case .success(let buffer):
+                                histogramOfB = buffer
+                        case .failure(let error):
+                                self.errorInfo = "Failed to align video B: \(error.localizedDescription)"
+                        }
+                        group.leave()
+                }
+                group.notify(queue: .global()) {
+                        let endTime = Date()  // Record the end time
+                        let executionTime = endTime.timeIntervalSince(startTime)
+                        DispatchQueue.main.async {
+                                self.processingTime = executionTime  // Update the processing time
+                        }
+                        guard let A = histogramOfA, let B = histogramOfB else {
+                                self.errorInfo = "parse frame gradient failed"
+                                return
+                        }
+                        saveHistogramAsJSON(histogram: A, fileName: "gpu_frame_histogram_A.json")
+                        saveHistogramAsJSON(histogram: B, fileName: "gpu_frame_histogram_B.json")
+                        guard let (offsetA, offsetB) = findBestAlingOffset(histoA: A, histoB: B) else {
+                                return
+                        }
+                        
+                        videoCihper(url: videoCtlA.videoURL!, offset: offsetA)
+                        videoCihper(url: videoCtlB.videoURL!, offset: offsetB)
+                }
         }
 }
 
 
 struct VideoPickerView: View {
         
-        @ObservedObject var videoController: AlignController
+        //        @ObservedObject var videoController: FrameSummedGradient
+        @ObservedObject var videoController: VideoAlignment
         @State private var showVideoPicker = false
         
         var body: some View {

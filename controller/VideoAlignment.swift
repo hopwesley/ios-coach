@@ -1,14 +1,15 @@
 //
-//  AlignController.swift
+//  VideoAlignment.swift
 //  SportsCoach
 //
-//  Created by wesley on 2024/6/21.
+//  Created by wesley on 2024/6/24.
 //
 
 import Foundation
+
 import AVFoundation
 import CoreImage
-class AlignController: ObservableObject {
+class VideoAlignment: ObservableObject {
         
         @Published var videoURL: URL?
         @Published var videoInfo:String?
@@ -34,7 +35,6 @@ class AlignController: ObservableObject {
         var gradientBufferT:MTLBuffer?
         var avgGradientOfBlock:MTLBuffer?
         var projectionBuf:MTLBuffer?
-        var sumGradient:MTLBuffer?
         
         var pixelThreadGrpSize:MTLSize = MTLSize(width: PixelThreadWidth,
                                                  height: PixelThreadHeight,
@@ -101,11 +101,10 @@ class AlignController: ObservableObject {
                 textureDescriptor.usage = [.shaderRead, .shaderWrite]
         }
         
-        func histogramOfAllFrame()->MTLBuffer?{
-                return nil
-        }
-        
-        private func pixelBufferToTexture(videoFrame: CVPixelBuffer)->MTLTexture?{
+        private func pixelBufferToTexture(_ sbuf: CMSampleBuffer)->MTLTexture?{
+                guard let videoFrame = CMSampleBufferGetImageBuffer(sbuf) else{
+                        return nil
+                }
                 guard let inputTexture = device.makeTexture(descriptor: textureDescriptor) else {
                         print("Error: Failed to create input texture")
                         return nil
@@ -118,12 +117,12 @@ class AlignController: ObservableObject {
                 return inputTexture
         }
         
-        func AlignVideo(){
+        func DebugAlignVideo(){
                 
                 Task{
                         do{
                                 try prepareGpuResource(sideOfDesc:SideSizeOfLevelZero)
-                                try await calculateFrameQuantizedAverageGradient()
+                                let _ = try await calculateFrameQuantizedAverageGradient(isDebug: true)
                         }catch{
                                 DispatchQueue.main.async {
                                         self.videoInfo =  error.localizedDescription
@@ -132,9 +131,25 @@ class AlignController: ObservableObject {
                 }
         }
         
-        private func calculateFrameQuantizedAverageGradient() async throws{
+        func AlignVideo(completion: @escaping (Result<[MTLBuffer], Error>) -> Void) {
+                Task {
+                        do {
+                                try prepareGpuResource(sideOfDesc: SideSizeOfLevelZero)
+                                let result = try await calculateFrameQuantizedAverageGradient()
+                                DispatchQueue.main.async {
+                                        completion(.success(result))
+                                }
+                        } catch {
+                                DispatchQueue.main.async {
+                                        completion(.failure(error))
+                                }
+                        }
+                }
+        }
+        
+        private func calculateFrameQuantizedAverageGradient(isDebug:Bool = false) async throws->[MTLBuffer]{
                 guard let url = self.videoURL else{
-                        return;
+                        throw ASError.readVideoDataFailed
                 }
                 
                 let asset = AVAsset(url: url)
@@ -149,21 +164,33 @@ class AlignController: ObservableObject {
                 reader.add(trackReaderOutput)
                 reader.startReading()
                 
-                //                        while let sampleBuffer = trackReaderOutput.copyNextSampleBuffer() {
+                var preFrame:MTLTexture? = nil
                 
-                guard let sampleBufferA = trackReaderOutput.copyNextSampleBuffer(),
-                      let pixelBufferA = CMSampleBufferGetImageBuffer(sampleBufferA),
-                      let textA = pixelBufferToTexture(videoFrame: pixelBufferA) else{
-                        throw ASError.readVideoDataFailed
+                var allFrameSumGradient:[MTLBuffer] = []
+                
+                while let sampleBuffer = trackReaderOutput.copyNextSampleBuffer() {
+                        
+                        guard  let frame = pixelBufferToTexture(sampleBuffer) else{
+                                throw ASError.readVideoDataFailed
+                        }
+                        if preFrame == nil{
+                                preFrame = frame
+                                continue
+                        }
+                        let sumGradient =  try procFrameData(rawImgPre: preFrame!, rawImgCur: frame)
+                        preFrame = frame
+                        allFrameSumGradient.append(sumGradient)
+                        let sumPointer = sumGradient.contents().assumingMemoryBound(to: Float.self)
+                        if isDebug || sumPointer.pointee == 0{
+                                debugBuffer(sumGradient: sumGradient)
+                                if isDebug{
+                                        break
+                                }
+                        }
                 }
                 
-                guard let sampleBufferB = trackReaderOutput.copyNextSampleBuffer(),
-                      let pixelBufferB = CMSampleBufferGetImageBuffer(sampleBufferB),
-                      let textB = pixelBufferToTexture(videoFrame: pixelBufferB) else{
-                        throw ASError.readVideoDataFailed
-                }
-                
-                try procFrameData(rawImgPre: textA, rawImgCur: textB)
+                print("frame sum gradient size:", allFrameSumGradient.count)
+                return allFrameSumGradient
         }
         
         func initGpuAndMemory() throws{
@@ -203,8 +230,7 @@ class AlignController: ObservableObject {
                       let grayBufferY = device.makeBuffer(length: self.pixelSize * MemoryLayout<Int16>.size, options: .storageModeShared),
                       let avgGradientAllBlock = device.makeBuffer(length: numBlocks * HistorgramSize * MemoryLayout<Float>.stride,
                                                                   options: .storageModeShared),
-                      let pBuffer = device.makeBuffer(bytes: icosahedronCenterP, length: PBufferSize, options: .storageModeShared),
-                let sumBuffer = device.makeBuffer(length: HistorgramSize * MemoryLayout<Float>.stride, options: .storageModeShared) else{
+                      let pBuffer = device.makeBuffer(bytes: icosahedronCenterP, length: PBufferSize, options: .storageModeShared) else{
                         throw ASError.gpuBufferErr
                 }
                 
@@ -215,20 +241,24 @@ class AlignController: ObservableObject {
                 self.gradientBufferY = grayBufferY
                 self.avgGradientOfBlock = avgGradientAllBlock
                 self.projectionBuf = pBuffer
-                self.sumGradient = sumBuffer
                 
                 pixelThreadGrpNo = MTLSize(width: (self.videoWidth + PixelThreadWidth - 1) / PixelThreadWidth,
                                            height: (self.videoHeight + PixelThreadHeight - 1) / PixelThreadHeight,
                                            depth: 1)
                 
-                blockThreadGrpSize =  MTLSize(width: blockSideOneDesc,
-                                              height: blockSideOneDesc,
-                                              depth: 1)
-                blockThreadGrpNo = MTLSize(
-                        width: (numBlocksX + blockSideOneDesc - 1) / blockSideOneDesc,
-                        height: (numBlocksY + blockSideOneDesc - 1) / blockSideOneDesc,
-                        depth: 1
-                )
+//                blockThreadGrpSize =  MTLSize(width: blockSideOneDesc,
+//                                              height: blockSideOneDesc,
+//                                              depth: 1)
+//                blockThreadGrpNo = MTLSize(
+//                        width: (numBlocksX + blockSideOneDesc - 1) / blockSideOneDesc,
+//                        height: (numBlocksY + blockSideOneDesc - 1) / blockSideOneDesc,
+//                        depth: 1
+//                )
+//                
+                blockThreadGrpSize = MTLSize(width: blockSize, height: blockSize, depth: 1)
+                blockThreadGrpNo = MTLSize(width: (self.videoWidth + blockSize - 1) / blockSize,
+                                           height: (self.videoHeight + blockSize - 1) / blockSize,
+                                           depth: 1)
         }
         
         func resetBuffer(){
@@ -238,25 +268,26 @@ class AlignController: ObservableObject {
                 memset(gradientBufferX?.contents(), 0, self.pixelSize * MemoryLayout<Int16>.stride)
                 memset(gradientBufferY?.contents(), 0, self.pixelSize * MemoryLayout<Int16>.stride)
                 memset(avgGradientOfBlock?.contents(), 0, numBlocks * HistorgramSize * MemoryLayout<Float>.stride)
-                memset(sumGradient?.contents(), 0, HistorgramSize * MemoryLayout<Float>.stride)
         }
         
-        func procFrameData(rawImgPre: MTLTexture, rawImgCur: MTLTexture) throws{
+        
+        func procFrameData(rawImgPre: MTLTexture, rawImgCur: MTLTexture) throws ->MTLBuffer{
                 
                 resetBuffer()
-                guard let commandBuffer = commandQueue.makeCommandBuffer() else{
+                
+                guard let commandBuffer = commandQueue.makeCommandBuffer(),
+                      let sumBuffer = device.makeBuffer(length: HistorgramSize * MemoryLayout<Float>.stride, options: .storageModeShared) else{
                         throw ASError.gpuBufferErr
                 }
                 
                 try encodeGray(rawImgPre: rawImgPre, rawImgCur: rawImgCur, commandBuffer: commandBuffer)
                 try encodeSpaceGradient(commandBuffer: commandBuffer)
                 try encodeQuantizer(commandBuffer: commandBuffer)
-                try  encodeSummer(commandBuffer:commandBuffer)
+                try encodeSummer(sumGradient:sumBuffer, commandBuffer:commandBuffer)
                 
                 commandBuffer.commit()
                 commandBuffer.waitUntilCompleted()
-                
-                debugBuffer()
+                return sumBuffer
         }
         
         func encodeGray(rawImgPre: MTLTexture, rawImgCur: MTLTexture, commandBuffer:MTLCommandBuffer) throws{
@@ -319,7 +350,7 @@ class AlignController: ObservableObject {
                 coder.endEncoding()
         }
         
-        func encodeSummer(commandBuffer:MTLCommandBuffer) throws{
+        func encodeSummer(sumGradient:MTLBuffer, commandBuffer:MTLCommandBuffer) throws{
                 
                 guard let coder = commandBuffer.makeComputeCommandEncoder()else{
                         throw ASError.gpuEncoderErr
@@ -335,19 +366,21 @@ class AlignController: ObservableObject {
                                            threadsPerThreadgroup: summerGroupSize)
                 coder.endEncoding()
         }
-        
-        func debugBuffer(){
+        var counter:Int = 0
+        func debugBuffer(sumGradient:MTLBuffer){
                 let w = self.videoWidth
                 let h = self.videoHeight
-                saveRawDataToFile(fileName: "gpu_grayBufferA.json", buffer: grayBufferCur!, width: w, height: h, type: UInt8.self)
-                saveRawDataToFile(fileName: "gpu_grayBufferB.json", buffer: grayBufferPre!, width: w, height: h, type: UInt8.self)
-                saveRawDataToFile(fileName: "gpu_gradientXBuffer.json", buffer: gradientBufferX!, width: w, height: h, type: Int16.self)
-                saveRawDataToFile(fileName: "gpu_gradientYBuffer.json", buffer: gradientBufferY!, width: w, height: h, type: Int16.self)
-                saveRawDataToFile(fileName: "gpu_gradientTBuffer.json", buffer: gradientBufferT!, width: w, height: h, type: UInt8.self)
+                saveRawDataToFile(fileName: "gpu_grayBufferA_\(counter).json", buffer: grayBufferCur!, width: w, height: h, type: UInt8.self)
+                saveRawDataToFile(fileName: "gpu_grayBufferB_\(counter).json", buffer: grayBufferPre!, width: w, height: h, type: UInt8.self)
+                saveRawDataToFile(fileName: "gpu_gradientXBuffer_\(counter).json", buffer: gradientBufferX!, width: w, height: h, type: Int16.self)
+                saveRawDataToFile(fileName: "gpu_gradientYBuffer_\(counter).json", buffer: gradientBufferY!, width: w, height: h, type: Int16.self)
+                saveRawDataToFile(fileName: "gpu_gradientTBuffer_\(counter).json", buffer: gradientBufferT!, width: w, height: h, type: UInt8.self)
+                
                 let numBlocksX = (self.videoWidth + self.sideOfBlock - 1) / self.sideOfBlock
                 let numBlocksY = (self.videoHeight + self.sideOfBlock - 1) / self.sideOfBlock
-                saveRawDataToFileWithDepth(fileName: "gpu_frame_quantity_\(self.sideOfBlock).json", buffer: avgGradientOfBlock!,
+                saveRawDataToFileWithDepth(fileName: "gpu_frame_quantity_\(self.sideOfBlock)_\(counter).json", buffer: avgGradientOfBlock!,
                                            width: numBlocksX, height: numBlocksY, depth: HistorgramSize, type: Float.self)
-                saveRawDataToFile(fileName: "gpu_gradientSumOfOneFrame.json", buffer: sumGradient!,  width: 10, height: 1,  type: Float.self)
+                saveRawDataToFile(fileName: "gpu_gradientSumOfOneFrame_\(counter).json", buffer: sumGradient,  width: 10, height: 1,  type: Float.self)
+                counter+=1
         }
 }
