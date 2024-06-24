@@ -17,14 +17,14 @@ constant int8_t sobelY[9] = {-1, -2, -1,
         1,  2,  1};
 
 kernel void spacetimeGradientExtraction(
-                            device uchar* grayBufferPre [[buffer(0)]],
-                            device uchar* grayBufferCur [[buffer(1)]],
-                            device short* outGradientX [[buffer(2)]],
-                            device short* outGradientY [[buffer(3)]],
-                            device uchar* outGradientT [[buffer(4)]],
-                            constant uint &width [[buffer(5)]],
-                            constant uint &height [[buffer(6)]],
-                            uint2 gid [[thread_position_in_grid]])
+                                        device uchar* grayBufferPre [[buffer(0)]],
+                                        device uchar* grayBufferCur [[buffer(1)]],
+                                        device short* outGradientX [[buffer(2)]],
+                                        device short* outGradientY [[buffer(3)]],
+                                        device uchar* outGradientT [[buffer(4)]],
+                                        constant uint &width [[buffer(5)]],
+                                        constant uint &height [[buffer(6)]],
+                                        uint2 gid [[thread_position_in_grid]])
 {
         int idx = gid.y * width + gid.x;
         uchar diff = abs(grayBufferCur[idx] - grayBufferPre[idx]);

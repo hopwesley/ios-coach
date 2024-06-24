@@ -7,10 +7,7 @@
 
 import Foundation
 import Metal
-
-let DescriptorParam_M = 2
-let DescriptorParam_m = 4
-
+ 
 func blockAvgGradientQuantize(device: MTLDevice, commandQueue: MTLCommandQueue,
                                pipelineState: MTLComputePipelineState,
                                gradientX: MTLBuffer, gradientY: MTLBuffer, gradientT: MTLBuffer,

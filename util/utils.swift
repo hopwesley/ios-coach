@@ -278,15 +278,19 @@ func clearTemporaryDirectory() {
         }
 }
 
-enum VideoParsingError: Error {
+enum ASError: Error {
         case noValidVideoTrack
         case videoTooLong
         case failedToLoadDuration
         case readVideoDataFailed
+        case gpuBufferErr
+        case gpuEncoderErr
+        case gpuDeviceErr
+        case shaderLoadErr
 }
 
 let constMaxVideoLen = 20.0
-extension VideoParsingError: LocalizedError {
+extension ASError: LocalizedError {
         var errorDescription: String? {
                 switch self {
                 case .noValidVideoTrack:
@@ -297,6 +301,14 @@ extension VideoParsingError: LocalizedError {
                         return NSLocalizedString("Video should be shorter than \(constMaxVideoLen) seconds", comment: "")
                 case .readVideoDataFailed:
                         return NSLocalizedString("Failed to read video buffer", comment: "")
+                case .gpuBufferErr:
+                        return NSLocalizedString("Failed to malloc gpu buffer", comment: "")
+                case .gpuEncoderErr:
+                        return NSLocalizedString("Failed to create gpu encoder", comment: "")
+                case .gpuDeviceErr:
+                        return NSLocalizedString("Gpu invalid", comment: "")
+                case .shaderLoadErr:
+                        return NSLocalizedString("Shader load failed", comment: "")
                 }
         }
 }
