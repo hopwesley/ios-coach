@@ -246,19 +246,14 @@ class VideoAlignment: ObservableObject {
                                            height: (self.videoHeight + PixelThreadHeight - 1) / PixelThreadHeight,
                                            depth: 1)
                 
-//                blockThreadGrpSize =  MTLSize(width: blockSideOneDesc,
-//                                              height: blockSideOneDesc,
-//                                              depth: 1)
-//                blockThreadGrpNo = MTLSize(
-//                        width: (numBlocksX + blockSideOneDesc - 1) / blockSideOneDesc,
-//                        height: (numBlocksY + blockSideOneDesc - 1) / blockSideOneDesc,
-//                        depth: 1
-//                )
-//                
-                blockThreadGrpSize = MTLSize(width: blockSize, height: blockSize, depth: 1)
-                blockThreadGrpNo = MTLSize(width: (self.videoWidth + blockSize - 1) / blockSize,
-                                           height: (self.videoHeight + blockSize - 1) / blockSize,
-                                           depth: 1)
+                blockThreadGrpSize =  MTLSize(width: blockSideOneDesc,
+                                              height: blockSideOneDesc,
+                                              depth: 1)
+                blockThreadGrpNo = MTLSize(
+                        width: (numBlocksX + blockSideOneDesc - 1) / blockSideOneDesc,
+                        height: (numBlocksY + blockSideOneDesc - 1) / blockSideOneDesc,
+                        depth: 1
+                )
         }
         
         func resetBuffer(){
