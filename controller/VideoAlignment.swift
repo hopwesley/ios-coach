@@ -297,7 +297,7 @@ class VideoAlignment: ObservableObject {
                                            threadsPerThreadgroup: pixelThreadGrpSize)
                 coder.endEncoding()
                 
-                print("Encoded Gray")
+//                print("Encoded Gray")
         }
         
         func encodeSpaceGradient(commandBuffer:MTLCommandBuffer) throws{
@@ -318,7 +318,7 @@ class VideoAlignment: ObservableObject {
                 coder.dispatchThreadgroups(pixelThreadGrpNo!,
                                            threadsPerThreadgroup: pixelThreadGrpSize)
                 coder.endEncoding()
-                print("Encoded Space Gradient")
+//                print("Encoded Space Gradient")
         }
         
         func encodeQuantizer(commandBuffer:MTLCommandBuffer) throws{
@@ -343,7 +343,7 @@ class VideoAlignment: ObservableObject {
                 coder.dispatchThreadgroups(blockThreadGrpNo!,
                                            threadsPerThreadgroup: blockThreadGrpSize!)
                 coder.endEncoding()
-                print("Encoded Quantizer")
+//                print("Encoded Quantizer")
         }
         
         func encodeSummer(sumGradient:MTLBuffer, commandBuffer:MTLCommandBuffer) throws{
@@ -365,7 +365,7 @@ class VideoAlignment: ObservableObject {
                 coder.dispatchThreadgroups(summerGroups,
                                            threadsPerThreadgroup: summerGroupSize)
                 coder.endEncoding()
-                print("Encoded Summer")
+//                print("Encoded Summer")
         }
         
         var counter:Int = 0
