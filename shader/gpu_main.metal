@@ -124,6 +124,7 @@ kernel void quantizeAvgerageGradientOfBlock(
                                             constant uint &width [[buffer(5)]],
                                             constant uint &height [[buffer(6)]],
                                             constant uint &blockSize [[buffer(7)]],
+                                            constant uint &numBlocksX [[buffer(8)]],
                                             uint2 gid [[thread_position_in_grid]])
 {
         uint blockStartX = gid.x * blockSize;
@@ -140,9 +141,8 @@ kernel void quantizeAvgerageGradientOfBlock(
         }
         
         if (count > 0) sumGradient /= float(count);
-        uint numBlocksX = (width + blockSize - 1) / blockSize;
+       
         uint avgIndex = gid.y * numBlocksX + gid.x;
-        
         quantizeGradient(sumGradient,normalizedP,avgGradientOneFrame, avgIndex);
 }
 

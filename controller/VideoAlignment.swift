@@ -19,6 +19,7 @@ class VideoAlignment: ObservableObject {
         var pixelSize:Int = 0
         var numBlocks:Int = 0
         var sideOfBlock:Int = 0
+        var numBlocksX:Int = 0
         
         var device: MTLDevice!
         var commandQueue: MTLCommandQueue!
@@ -183,6 +184,7 @@ class VideoAlignment: ObservableObject {
                         let sumPointer = sumGradient.contents().assumingMemoryBound(to: Float.self)
                         if isDebug || sumPointer.pointee == 0{
                                 debugBuffer(sumGradient: sumGradient)
+                                debugPrintBuffer(buffer: avgGradientOfBlock!, label: "avgGradientOfBlock (before)")
                                 if isDebug{
                                         break
                                 }
@@ -216,18 +218,17 @@ class VideoAlignment: ObservableObject {
                 
                 let blockSideOneDesc = DescriptorParam_M * DescriptorParam_m
                 let blockSize = sideOfDesc / blockSideOneDesc
-                let numBlocksX = (self.videoWidth + blockSize - 1) / blockSize
+                self.numBlocksX = (self.videoWidth + blockSize - 1) / blockSize
                 let numBlocksY = (self.videoHeight + blockSize - 1) / blockSize
-                self.numBlocks = numBlocksX * numBlocksY
+                self.numBlocks = self.numBlocksX * numBlocksY
                 self.sideOfBlock = blockSize
-                
+                let histogramLen = numBlocks * HistorgramSize * MemoryLayout<Float>.stride
                 guard let grayBufferA = device.makeBuffer(length: self.pixelSize * MemoryLayout<UInt8>.stride, options: .storageModeShared),
                       let grayBufferB = device.makeBuffer(length: self.pixelSize * MemoryLayout<UInt8>.stride, options: .storageModeShared),
                       let grayBufferT = device.makeBuffer(length: self.pixelSize * MemoryLayout<UInt8>.stride, options: .storageModeShared),
                       let grayBufferX = device.makeBuffer(length: self.pixelSize * MemoryLayout<Int16>.stride, options: .storageModeShared),
                       let grayBufferY = device.makeBuffer(length: self.pixelSize * MemoryLayout<Int16>.stride, options: .storageModeShared),
-                      let avgGradientAllBlock = device.makeBuffer(length: numBlocks * HistorgramSize * MemoryLayout<Float>.stride,
-                                                                  options: .storageModeShared),
+                      let avgGradientAllBlock = device.makeBuffer(length: histogramLen, options: .storageModeShared),
                       let pBuffer = device.makeBuffer(bytes: normalizedP,
                                                       length: MemoryLayout<SIMD3<Float>>.stride * normalizedP.count, options: .storageModeShared) else{
                         throw ASError.gpuBufferErr
@@ -267,7 +268,8 @@ class VideoAlignment: ObservableObject {
         func procFrameData(rawImgPre: MTLTexture, rawImgCur: MTLTexture) throws ->MTLBuffer{
                 
                 resetBuffer()
-                let bufferMemSize = HistorgramSize * MemoryLayout<Float>.stride
+                
+                let bufferMemSize = HistorgramSize * MemoryLayout<Float>.size
                 guard let commandBuffer = commandQueue.makeCommandBuffer(),
                       let sumBuffer = device.makeBuffer(length:bufferMemSize , options: .storageModeShared) else{
                         throw ASError.gpuBufferErr
@@ -280,6 +282,7 @@ class VideoAlignment: ObservableObject {
                 
                 commandBuffer.commit()
                 commandBuffer.waitUntilCompleted()
+                
                 return sumBuffer
         }
         
@@ -296,8 +299,6 @@ class VideoAlignment: ObservableObject {
                 coder.dispatchThreadgroups(pixelThreadGrpNo!,
                                            threadsPerThreadgroup: pixelThreadGrpSize)
                 coder.endEncoding()
-                
-//                print("Encoded Gray")
         }
         
         func encodeSpaceGradient(commandBuffer:MTLCommandBuffer) throws{
@@ -318,7 +319,6 @@ class VideoAlignment: ObservableObject {
                 coder.dispatchThreadgroups(pixelThreadGrpNo!,
                                            threadsPerThreadgroup: pixelThreadGrpSize)
                 coder.endEncoding()
-//                print("Encoded Space Gradient")
         }
         
         func encodeQuantizer(commandBuffer:MTLCommandBuffer) throws{
@@ -328,22 +328,21 @@ class VideoAlignment: ObservableObject {
                 }
                 
                 coder.setComputePipelineState(self.blockHistogramPipe)
+                
                 coder.setBuffer(gradientBufferX, offset: 0, index: 0)
                 coder.setBuffer(gradientBufferY, offset: 0, index: 1)
                 coder.setBuffer(gradientBufferT, offset: 0, index: 2)
                 coder.setBuffer(avgGradientOfBlock, offset: 0, index: 3)
-                
-                var w = self.videoWidth
-                var h = self.videoHeight
                 coder.setBuffer(self.projectionBuf, offset: 0, index: 4)
-                coder.setBytes(&w, length: MemoryLayout<Int>.size, index: 5)
-                coder.setBytes(&h, length: MemoryLayout<Int>.size, index: 6)
-                var bSize = self.sideOfBlock
-                coder.setBytes(&bSize, length: MemoryLayout<Int>.size, index: 7)
+                
+                coder.setBytes(&self.videoWidth, length: MemoryLayout<Int>.size, index: 5)
+                coder.setBytes(&self.videoHeight, length: MemoryLayout<Int>.size, index: 6)
+                coder.setBytes(&self.sideOfBlock, length: MemoryLayout<Int>.size, index: 7)
+                coder.setBytes(&numBlocksX, length: MemoryLayout<Int>.size, index: 8)
+                
                 coder.dispatchThreadgroups(blockThreadGrpNo!,
                                            threadsPerThreadgroup: blockThreadGrpSize!)
                 coder.endEncoding()
-//                print("Encoded Quantizer")
         }
         
         func encodeSummer(sumGradient:MTLBuffer, commandBuffer:MTLCommandBuffer) throws{
@@ -354,20 +353,19 @@ class VideoAlignment: ObservableObject {
                 
                 coder.setComputePipelineState(self.frameSumGradientPipe)
                 coder.setBuffer(avgGradientOfBlock, offset: 0, index: 0)
-                
+
                 coder.setBuffer(sumGradient, offset: 0, index: 1)
-                var noBlock = self.numBlocks
-                if noBlock == 0{
-                        print("block numbers:\(noBlock)")
-                }
+                coder.setBytes(&self.numBlocks, length: MemoryLayout<UInt>.size, index: 2)
                 
-                coder.setBytes(&noBlock, length: MemoryLayout<UInt>.size, index: 2)
                 coder.dispatchThreadgroups(summerGroups,
                                            threadsPerThreadgroup: summerGroupSize)
                 coder.endEncoding()
-//                print("Encoded Summer")
         }
-        
+        func debugPrintBuffer(buffer: MTLBuffer, label: String) {
+            let bufferPointer = buffer.contents().assumingMemoryBound(to: Float.self)
+            let bufferSize = buffer.length / MemoryLayout<Float>.stride
+            print("\(label) content:\(bufferSize) number of blocks \(self.numBlocks)")
+        }
         var counter:Int = 0
         func debugBuffer(sumGradient:MTLBuffer){
                 let w = self.videoWidth
