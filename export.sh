@@ -1,9 +1,10 @@
 #!/bin/bash
 
-APP_BUNDLE_ID="com.aisport.coach.SportsCoach" # 替换为你的应用程序的 Bundle Identifier
-EXPORT_PATH="$HOME/Download/" # 设置导出路径
+APP_BUNDLE_ID="com.aisport.coach.SportsCoach" # Replace with your app's bundle identifier
+EXPORT_PATH="$HOME/Downloads/tmp" # Set the correct export path
+TARGET_PATH="$HOME/golf/video-diff/tmp/ios" # Set the target path for .json files
 
-# 获取设备的 UDID
+# Get the device's UDID
 DEVICE_ID=$(idevice_id -l | head -n 1)
 
 if [ -z "$DEVICE_ID" ]; then
@@ -11,30 +12,46 @@ if [ -z "$DEVICE_ID" ]; then
   exit 1
 fi
 
-# 创建导出路径
+# Create export path if it doesn't exist
 mkdir -p "$EXPORT_PATH"
 
-# 检查应用程序是否安装在设备上
-ideviceinstaller -u "$DEVICE_ID" -l | grep "$APP_BUNDLE_ID" > /dev/null
+# Create target path if it doesn't exist
+mkdir -p "$TARGET_PATH"
+
+# Check if the app is installed on the device
+ios-deploy --id "$DEVICE_ID" --exists --bundle_id "$APP_BUNDLE_ID"
+
 if [ $? -ne 0 ]; then
   echo "App with bundle ID $APP_BUNDLE_ID not found on device $DEVICE_ID"
   exit 1
 fi
 
-# 获取应用程序的 UUID
-APP_UUID=$(ideviceprovision list -u "$DEVICE_ID" | grep "$APP_BUNDLE_ID" | awk '{print $1}')
-
-if [ -z "$APP_UUID" ]; then
-  echo "Failed to find app UUID for bundle ID $APP_BUNDLE_ID"
-  exit 1
-fi
-
-# 导出应用的数据容器
-ideviceprovision copy "$APP_UUID" "$EXPORT_PATH"
+# Export the tmp folder using ios-deploy
+ios-deploy --id "$DEVICE_ID" --download=/tmp --to="$EXPORT_PATH" --bundle_id "$APP_BUNDLE_ID"
 
 if [ $? -ne 0 ]; then
-  echo "Failed to export app container to: $EXPORT_PATH"
+  echo "Failed to export tmp folder to: $EXPORT_PATH"
   exit 1
 fi
 
-echo "App container exported successfully to: $EXPORT_PATH"
+echo "tmp folder exported successfully to: $EXPORT_PATH"
+
+# Move all .json files from EXPORT_PATH/tmp to TARGET_PATH
+find "$EXPORT_PATH/tmp" -name "*.json" -exec mv {} "$TARGET_PATH" \;
+
+if [ $? -ne 0 ]; then
+  echo "Failed to move .json files to: $TARGET_PATH"
+  exit 1
+fi
+
+echo ".json files moved successfully to: $TARGET_PATH"
+
+# Remove EXPORT_PATH if mv command was successful
+rm -rf "$EXPORT_PATH"
+
+if [ $? -ne 0 ]; then
+  echo "Failed to remove export path: $EXPORT_PATH"
+  exit 1
+fi
+
+echo "Export path $EXPORT_PATH removed successfully"
