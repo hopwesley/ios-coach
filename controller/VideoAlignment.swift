@@ -180,6 +180,7 @@ class VideoAlignment: ObservableObject {
                         let sumGradient =  try procFrameData(rawImgPre: preFrame!, rawImgCur: frame)
                         preFrame = frame
                         allFrameSumGradient.append(sumGradient)
+                        
                         let sumPointer = sumGradient.contents().assumingMemoryBound(to: Float.self)
                         if isDebug || sumPointer.pointee == 0{
                                 debugBuffer(sumGradient: sumGradient)
@@ -221,7 +222,6 @@ class VideoAlignment: ObservableObject {
                 let numBlocksY = (self.videoHeight + blockSize - 1) / blockSize
                 self.numBlocks = numBlocksX * numBlocksY
                 self.sideOfBlock = blockSize
-                let PBufferSize = icosahedronCenterP.count * MemoryLayout<SIMD3<Float>>.stride
                 
                 guard let grayBufferA = device.makeBuffer(length: self.pixelSize * MemoryLayout<UInt8>.size, options: .storageModeShared),
                       let grayBufferB = device.makeBuffer(length: self.pixelSize * MemoryLayout<UInt8>.size, options: .storageModeShared),
@@ -230,10 +230,11 @@ class VideoAlignment: ObservableObject {
                       let grayBufferY = device.makeBuffer(length: self.pixelSize * MemoryLayout<Int16>.size, options: .storageModeShared),
                       let avgGradientAllBlock = device.makeBuffer(length: numBlocks * HistorgramSize * MemoryLayout<Float>.stride,
                                                                   options: .storageModeShared),
-                      let pBuffer = device.makeBuffer(bytes: icosahedronCenterP, length: PBufferSize, options: .storageModeShared) else{
+                      let pBuffer = device.makeBuffer(bytes: normalizedP,
+                                                      length: MemoryLayout<SIMD3<Float>>.stride * normalizedP.count, options: .storageModeShared) else{
                         throw ASError.gpuBufferErr
                 }
-                
+
                 self.grayBufferPre = grayBufferA
                 self.grayBufferCur = grayBufferB
                 self.gradientBufferT = grayBufferT
@@ -339,7 +340,6 @@ class VideoAlignment: ObservableObject {
                 coder.setBytes(&h, length: MemoryLayout<Int>.size, index: 6)
                 var bSize = self.sideOfBlock
                 coder.setBytes(&bSize, length: MemoryLayout<Int>.size, index: 7)
-                
                 coder.dispatchThreadgroups(blockThreadGrpNo!,
                                            threadsPerThreadgroup: blockThreadGrpSize!)
                 coder.endEncoding()
@@ -361,6 +361,7 @@ class VideoAlignment: ObservableObject {
                                            threadsPerThreadgroup: summerGroupSize)
                 coder.endEncoding()
         }
+        
         var counter:Int = 0
         func debugBuffer(sumGradient:MTLBuffer){
                 let w = self.videoWidth

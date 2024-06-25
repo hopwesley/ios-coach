@@ -10,31 +10,6 @@ import Metal
 import simd
 
 
-let phi = Float((1.0 + sqrt(5.0)) / 2.0)
-
-
-let icosahedronCenterPPart1: [SIMD3<Float>] = [
-        SIMD3<Float>(1, 1, 1), SIMD3<Float>(1, 1, -1), SIMD3<Float>(1, -1, 1), SIMD3<Float>(1, -1, -1)
-]
-
-let icosahedronCenterPPart2: [SIMD3<Float>] = [
-        SIMD3<Float>(-1, 1, 1), SIMD3<Float>(-1, 1, -1), SIMD3<Float>(-1, -1, 1), SIMD3<Float>(-1, -1, -1)
-]
-
-let icosahedronCenterPPart3: [SIMD3<Float>] = [
-        SIMD3<Float>(0, 1 / phi, phi), SIMD3<Float>(0, -1 / phi, phi), SIMD3<Float>(0, 1 / phi, -phi), SIMD3<Float>(0, -1 / phi, -phi)
-]
-
-let icosahedronCenterPPart4: [SIMD3<Float>] = [
-        SIMD3<Float>(phi, 0, 1 / phi), SIMD3<Float>(-phi, 0, 1 / phi), SIMD3<Float>(phi, 0, -1 / phi), SIMD3<Float>(-phi, 0, -1 / phi)
-]
-
-let icosahedronCenterPPart5: [SIMD3<Float>] = [
-        SIMD3<Float>(1 / phi, phi, 0), SIMD3<Float>(-1 / phi, phi, 0), SIMD3<Float>(1 / phi, -phi, 0), SIMD3<Float>(-1 / phi, -phi, 0)
-]
-
-let icosahedronCenterP = icosahedronCenterPPart1 + icosahedronCenterPPart2 + icosahedronCenterPPart3 + icosahedronCenterPPart4 + icosahedronCenterPPart5
-
 
 func quantizeGradients(device: MTLDevice, commandQueue: MTLCommandQueue,
                        pipelineState: MTLComputePipelineState,

@@ -8,6 +8,7 @@
 #include <metal_stdlib>
 using namespace metal;
 constant float threshold = 1.29107;
+
 constant int8_t sobelX[9] = {-1, 0, 1,
         -2, 0, 2,
         -1, 0, 1};
@@ -15,6 +16,9 @@ constant int8_t sobelX[9] = {-1, 0, 1,
 constant int8_t sobelY[9] = {-1, -2, -1,
         0,  0,  0,
         1,  2,  1};
+
+constant float phi = 1.61803398875; // φ = (1 + sqrt(5)) / 2
+
 
 kernel void  grayAndTimeDiff(texture2d<float, access::read> preTexture [[texture(0)]],
                              texture2d<float, access::read> texture [[texture(1)]],
@@ -82,7 +86,7 @@ inline float q_prime_l2_norm(float q_prime[10]) {
 
 inline void quantizeGradient(
                              float3 avgGradient,
-                             constant float3 *P,
+                             constant float3 *normalizedP,
                              device float *quantizeGradient,
                              uint index)
 {
@@ -95,8 +99,8 @@ inline void quantizeGradient(
         
         float q_prime[10];  // 计算投影结果 q_i
         for (int i = 0; i < 10; ++i) {
-                float bin_i = dot(P[i], g_normalized);
-                float bin_j = dot(P[i + 10], g_normalized);
+                float bin_i = dot(normalizedP[i], g_normalized);
+                float bin_j = dot(normalizedP[i + 10], g_normalized);
                 q_prime[i] = fabs(bin_i) + fabs(bin_j) - threshold;
                 q_prime[i] = max(q_prime[i], 0.0);
         }
@@ -116,7 +120,7 @@ kernel void quantizeAvgerageGradientOfBlock(
                                             device short* gradientY [[buffer(1)]],
                                             device uchar* gradientT [[buffer(2)]],
                                             device float* avgGradientOneFrame [[buffer(3)]],
-                                            constant float3* P [[buffer(4)]],
+                                            constant float3* normalizedP [[buffer(4)]],
                                             constant uint &width [[buffer(5)]],
                                             constant uint &height [[buffer(6)]],
                                             constant uint &blockSize [[buffer(7)]],
@@ -139,7 +143,7 @@ kernel void quantizeAvgerageGradientOfBlock(
         uint numBlocksX = (width + blockSize - 1) / blockSize;
         uint avgIndex = gid.y * numBlocksX + gid.x;
         
-        quantizeGradient(sumGradient, P, avgGradientOneFrame, avgIndex);
+        quantizeGradient(sumGradient,normalizedP,avgGradientOneFrame, avgIndex);
 }
 
 kernel void sumQuantizedGradients(
