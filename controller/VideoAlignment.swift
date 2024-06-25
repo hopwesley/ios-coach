@@ -353,18 +353,25 @@ class VideoAlignment: ObservableObject {
                 
                 coder.setComputePipelineState(self.frameSumGradientPipe)
                 coder.setBuffer(avgGradientOfBlock, offset: 0, index: 0)
-
                 coder.setBuffer(sumGradient, offset: 0, index: 1)
                 coder.setBytes(&self.numBlocks, length: MemoryLayout<UInt>.size, index: 2)
                 
-                coder.dispatchThreadgroups(summerGroups,
-                                           threadsPerThreadgroup: summerGroupSize)
+                //                coder.dispatchThreadgroups(summerGroups,sroup: summerGroupSize)
+                
+                
+                let threadGroupSize = MTLSize(width: 32, height: 1, depth: 1) // 每个线程组有32个线程
+                let numThreadGroups = MTLSize(width: 10, height: 1, depth: 1) // 10个线程组，每个线程组计算一个维度
+                
+                coder.setThreadgroupMemoryLength(MemoryLayout<Float>.stride * 32, index: 0) // 分配线程组内存
+                coder.dispatchThreadgroups(numThreadGroups, threadsPerThreadgroup: threadGroupSize)
                 coder.endEncoding()
         }
+        
+        
         func debugPrintBuffer(buffer: MTLBuffer, label: String) {
-            let bufferPointer = buffer.contents().assumingMemoryBound(to: Float.self)
-            let bufferSize = buffer.length / MemoryLayout<Float>.stride
-            print("\(label) content:\(bufferSize) number of blocks \(self.numBlocks)")
+                let bufferPointer = buffer.contents().assumingMemoryBound(to: Float.self)
+                let bufferSize = buffer.length / MemoryLayout<Float>.stride
+                print("\(label) content:\(bufferSize) number of blocks \(self.numBlocks)")
         }
         var counter:Int = 0
         func debugBuffer(sumGradient:MTLBuffer){

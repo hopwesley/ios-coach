@@ -141,16 +141,16 @@ kernel void quantizeAvgerageGradientOfBlock(
         }
         
         if (count > 0) sumGradient /= float(count);
-       
+        
         uint avgIndex = gid.y * numBlocksX + gid.x;
         quantizeGradient(sumGradient,normalizedP,avgGradientOneFrame, avgIndex);
 }
 
-kernel void sumQuantizedGradients(
-                                  device float* avgGradientOneFrame [[buffer(0)]],
-                                  device float* finalGradient [[buffer(1)]],
-                                  constant uint &numBlocks [[buffer(2)]],
-                                  uint gid [[thread_position_in_grid]])
+kernel void sumQuantizedGradients2(
+                                   device float* avgGradientOneFrame [[buffer(0)]],
+                                   device float* finalGradient [[buffer(1)]],
+                                   constant uint &numBlocks [[buffer(2)]],
+                                   uint gid [[thread_position_in_grid]])
 {
         if (gid >= 10) return;
         
@@ -159,4 +159,40 @@ kernel void sumQuantizedGradients(
                 sum += avgGradientOneFrame[i * 10 + gid];
         }
         finalGradient[gid] = sum;
+}
+
+
+kernel void sumQuantizedGradients(
+                                  device float* avgGradientOneFrame [[buffer(0)]],
+                                  device atomic_float* finalGradient [[buffer(1)]],
+                                  constant uint &numBlocks [[buffer(2)]],
+                                  uint gid [[thread_position_in_grid]],
+                                  uint local_id [[thread_index_in_threadgroup]],
+                                  threadgroup float* localSum)  // 使用 threadgroup 共享内存
+{
+        // 计算当前线程所属的维度
+        uint dimension = gid / 32;
+        if (dimension >= 10) return; // 确保只处理前 10 个维度
+        
+        // 初始化局部累加结果
+        float sum = 0.0;
+        for (uint i = local_id; i < numBlocks; i += 32) {
+                uint index = i * 10 + dimension;
+                sum += avgGradientOneFrame[index];
+        }
+        
+        localSum[local_id] = sum;
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        
+        // 并行归约过程
+        for (uint offset = 32 / 2; offset > 0; offset >>= 1) { // 假设线程组大小为 32
+                if (local_id < offset) {
+                        localSum[local_id] += localSum[local_id + offset];
+                }
+                threadgroup_barrier(mem_flags::mem_threadgroup);
+        }
+        
+        if (local_id == 0) {
+                atomic_fetch_add_explicit(&finalGradient[dimension], localSum[0], memory_order_relaxed);
+        }
 }

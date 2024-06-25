@@ -62,8 +62,8 @@
             filePath = "controller/VideoAlignment.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "360"
-            endingLineNumber = "360"
+            startingLineNumber = "359"
+            endingLineNumber = "359"
             landmarkName = "encodeSummer(sumGradient:commandBuffer:)"
             landmarkType = "7">
          </BreakpointContent>
