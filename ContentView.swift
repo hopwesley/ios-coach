@@ -3,51 +3,96 @@ import AVFoundation
 import _AVKit_SwiftUI
 import PhotosUI
 
-
 struct ContentView: View {
         @State private var errorInfo = ""
         @State private var processingTime: Double? = nil
         @StateObject private var videoCtlA = VideoAlignment()
         @StateObject private var videoCtlB = VideoAlignment()
+        
+        @State private var sliderValue: Double = 20000
+        @State private var maxSliderValue: Double = 100.0
+        @State private var isProcessing = false
+        
         var body: some View {
-                ScrollView {
-                        VStack {
-                                VideoPickerView(videoController: videoCtlA)
-                                VideoPickerView(videoController: videoCtlB)
-                        }
-                        VStack{
-                                Button(action: {
-                                        videoCtlA.DebugAlignVideo()
-                                }) {
-                                        Text("Test")
-                                }.frame(width: 160, height: 80).background(Color.gray)
+                ZStack {
+                        ScrollView {
+                                VStack {
+                                        VideoPickerView(videoController: videoCtlA)
+                                        VideoPickerView(videoController: videoCtlB)
+                                }
+                                VStack {
+                                        Button(action: {
+                                                videoCtlA.DebugAlignVideo()
+                                        }) {
+                                                Text("Test")
+                                        }
+                                        .frame(width: 160, height: 80)
+                                        .background(Color.gray)
+                                        
+                                        Text(errorInfo)
+                                        if let time = processingTime {
+                                                Text("Processing time: \(time, specifier: "%.2f") seconds")
+                                        }
+                                }
+                                VStack {
+                                        if let aCount = videoCtlA.FrameCount, let bCount = videoCtlB.FrameCount {
+                                                let msv = Double(min(aCount, bCount))
+                                                Text("对齐帧数: \(Int(sliderValue))")
+                                                HStack {
+                                                        Text("1")
+                                                        Slider(value: $sliderValue, in: 1...Double(msv))
+                                                        Text("\(Int(msv))")
+                                                }
+                                                .padding()
+                                                .onAppear {
+                                                        self.maxSliderValue = msv
+                                                        if Int(sliderValue) > Int(maxSliderValue) {
+                                                                sliderValue = Double(maxSliderValue)
+                                                        }
+                                                }
+                                        }
+                                }
                                 
                                 Button(action: {
-                                        processingTimeAlign()
+                                        processingTimeAlign(maxFrame: Int(sliderValue))
                                 }) {
                                         Text("对齐")
-                                }.frame(width: 160, height: 80).background(Color.gray)
-                                
-                                Text(errorInfo)
-                                if let time = processingTime {
-                                        Text("Processing time: \(time, specifier: "%.2f") seconds")
                                 }
+                                .frame(width: 160, height: 80)
+                                .background(Color.gray)
                         }
-                        
+                        .allowsHitTesting(!isProcessing)
+                        if isProcessing {
+                                // Waiting view
+                                VStack {
+                                        Text("正在处理，请稍候...")
+                                                .padding()
+                                                .background(Color.black.opacity(0.75))
+                                                .cornerRadius(10)
+                                                .foregroundColor(.white)
+                                }
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(Color.black.opacity(0.5).edgesIgnoringSafeArea(.all))
+                        }
                 }
         }
         
-        func processingTimeAlign(){
-                guard videoCtlA.videoURL != nil, videoCtlB.videoURL != nil else{
+        func processingTimeAlign(maxFrame: Int) {
+                guard videoCtlA.videoURL != nil, videoCtlB.videoURL != nil else {
                         print("need 2 video to be compared")
                         return
                 }
                 
                 let startTime = Date()
                 
-                var histogramOfA:[MTLBuffer]? = nil
-                var histogramOfB:[MTLBuffer]? = nil
+                var histogramOfA: [MTLBuffer]? = nil
+                var histogramOfB: [MTLBuffer]? = nil
                 let group = DispatchGroup()
+                
+                // Show waiting view
+                DispatchQueue.main.async {
+                        self.isProcessing = true
+                }
                 
                 group.enter()
                 videoCtlA.AlignVideo { result in
@@ -74,6 +119,7 @@ struct ContentView: View {
                         let executionTime = endTime.timeIntervalSince(startTime)
                         DispatchQueue.main.async {
                                 self.processingTime = executionTime  // Update the processing time
+                                self.isProcessing = false  // Hide waiting view
                         }
                         guard let A = histogramOfA, let B = histogramOfB else {
                                 self.errorInfo = "parse frame gradient failed"
@@ -91,10 +137,7 @@ struct ContentView: View {
         }
 }
 
-
 struct VideoPickerView: View {
-        
-        //        @ObservedObject var videoController: FrameSummedGradient
         @ObservedObject var videoController: VideoAlignment
         @State private var showVideoPicker = false
         
@@ -113,7 +156,7 @@ struct VideoPickerView: View {
                                                 .background(Color.white)
                                                 .cornerRadius(20)
                                 }
-                                if let info = videoController.videoInfo{
+                                if let info = videoController.videoInfo {
                                         Text(info)
                                 }
                         } else {

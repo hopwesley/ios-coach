@@ -13,7 +13,7 @@ class VideoAlignment: ObservableObject {
         
         @Published var videoURL: URL?
         @Published var videoInfo:String?
-        
+        @Published var FrameCount:Int?
         var videoWidth:Int = 0
         var videoHeight:Int = 0
         var pixelSize:Int = 0
@@ -52,6 +52,7 @@ class VideoAlignment: ObservableObject {
                         deleteFile(at: url)
                 }
                 self.videoURL = nil
+                self.FrameCount = nil
         }
         
         func prepareVideoInBackground(url:URL){
@@ -89,8 +90,12 @@ class VideoAlignment: ObservableObject {
                 self.videoWidth = Int(videoSize.width)
                 self.videoHeight = Int(videoSize.height)
                 self.pixelSize = self.videoWidth * self.videoHeight
+                
+                let nominalFrameRate = try await videoTrack.load(.nominalFrameRate)//.nominalFrameRate
+                
                 DispatchQueue.main.async {
                         self.videoInfo =  "width(\(self.videoWidth)) height(\(self.videoHeight)) duration(\(duration) )seconds"
+                        self.FrameCount = Int(duration * Double(nominalFrameRate))
                 }
                 
                 self.textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
