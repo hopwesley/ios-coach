@@ -166,17 +166,18 @@ kernel void sumQuantizedGradients(
                                   device float* avgGradientOneFrame [[buffer(0)]],
                                   device atomic_float* finalGradient [[buffer(1)]],
                                   constant uint &numBlocks [[buffer(2)]],
+                                  constant uint &threadGroupSize [[buffer(3)]],
                                   uint gid [[thread_position_in_grid]],
                                   uint local_id [[thread_index_in_threadgroup]],
                                   threadgroup float* localSum)  // 使用 threadgroup 共享内存
 {
         // 计算当前线程所属的维度
-        uint dimension = gid / 32;
+        uint dimension = gid / threadGroupSize;
         if (dimension >= 10) return; // 确保只处理前 10 个维度
         
         // 初始化局部累加结果
         float sum = 0.0;
-        for (uint i = local_id; i < numBlocks; i += 32) {
+        for (uint i = local_id; i < numBlocks; i += threadGroupSize) {
                 uint index = i * 10 + dimension;
                 sum += avgGradientOneFrame[index];
         }
@@ -185,7 +186,7 @@ kernel void sumQuantizedGradients(
         threadgroup_barrier(mem_flags::mem_threadgroup);
         
         // 并行归约过程
-        for (uint offset = 32 / 2; offset > 0; offset >>= 1) { // 假设线程组大小为 32
+        for (uint offset = threadGroupSize / 2; offset > 0; offset >>= 1) { // 假设线程组大小为 32
                 if (local_id < offset) {
                         localSum[local_id] += localSum[local_id + offset];
                 }

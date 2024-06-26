@@ -13,7 +13,8 @@ let DescriptorParam_m = 4
 let SideSizeOfLevelZero = 32
 let PixelThreadWidth = 8
 let PixelThreadHeight = 8
-let HistorgramSize = 10
+let HistogramSize = 10
+let ThreadSizeForParallelSum = 32
 
 let phi = Float((1.0 + sqrt(5.0)) / 2.0)
 let icosahedronCenterP: [SIMD3<Float>] = [

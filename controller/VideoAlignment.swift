@@ -43,8 +43,8 @@ class VideoAlignment: ObservableObject {
         var pixelThreadGrpNo:MTLSize?
         var blockThreadGrpSize:MTLSize?
         var blockThreadGrpNo:MTLSize?
-        var  summerGroupSize:MTLSize = MTLSize(width: HistorgramSize, height: 1, depth: 1)
-        var summerGroups:MTLSize = MTLSize(width: 1, height: 1, depth: 1)
+        var  summerGroupSize:MTLSize = MTLSize(width: ThreadSizeForParallelSum, height: 1, depth: 1)
+        var summerGroups:MTLSize = MTLSize(width: HistogramSize, height: 1, depth: 1)
         
         
         func removeVideo(){
@@ -184,7 +184,6 @@ class VideoAlignment: ObservableObject {
                         let sumPointer = sumGradient.contents().assumingMemoryBound(to: Float.self)
                         if isDebug || sumPointer.pointee == 0{
                                 debugBuffer(sumGradient: sumGradient)
-                                debugPrintBuffer(buffer: avgGradientOfBlock!, label: "avgGradientOfBlock (before)")
                                 if isDebug{
                                         break
                                 }
@@ -222,7 +221,7 @@ class VideoAlignment: ObservableObject {
                 let numBlocksY = (self.videoHeight + blockSize - 1) / blockSize
                 self.numBlocks = self.numBlocksX * numBlocksY
                 self.sideOfBlock = blockSize
-                let histogramLen = numBlocks * HistorgramSize * MemoryLayout<Float>.stride
+                let histogramLen = numBlocks * HistogramSize * MemoryLayout<Float>.stride
                 guard let grayBufferA = device.makeBuffer(length: self.pixelSize * MemoryLayout<UInt8>.stride, options: .storageModeShared),
                       let grayBufferB = device.makeBuffer(length: self.pixelSize * MemoryLayout<UInt8>.stride, options: .storageModeShared),
                       let grayBufferT = device.makeBuffer(length: self.pixelSize * MemoryLayout<UInt8>.stride, options: .storageModeShared),
@@ -262,14 +261,14 @@ class VideoAlignment: ObservableObject {
                 memset(gradientBufferT?.contents(), 0, self.pixelSize * MemoryLayout<UInt8>.stride)
                 memset(gradientBufferX?.contents(), 0, self.pixelSize * MemoryLayout<Int16>.stride)
                 memset(gradientBufferY?.contents(), 0, self.pixelSize * MemoryLayout<Int16>.stride)
-                memset(avgGradientOfBlock?.contents(), 0, numBlocks * HistorgramSize * MemoryLayout<Float>.stride)
+                memset(avgGradientOfBlock?.contents(), 0, numBlocks * HistogramSize * MemoryLayout<Float>.stride)
         }
         
         func procFrameData(rawImgPre: MTLTexture, rawImgCur: MTLTexture) throws ->MTLBuffer{
                 
                 resetBuffer()
                 
-                let bufferMemSize = HistorgramSize * MemoryLayout<Float>.size
+                let bufferMemSize = HistogramSize * MemoryLayout<Float>.size
                 guard let commandBuffer = commandQueue.makeCommandBuffer(),
                       let sumBuffer = device.makeBuffer(length:bufferMemSize , options: .storageModeShared) else{
                         throw ASError.gpuBufferErr
@@ -355,24 +354,14 @@ class VideoAlignment: ObservableObject {
                 coder.setBuffer(avgGradientOfBlock, offset: 0, index: 0)
                 coder.setBuffer(sumGradient, offset: 0, index: 1)
                 coder.setBytes(&self.numBlocks, length: MemoryLayout<UInt>.size, index: 2)
+                var threadGroupSize: UInt = UInt(ThreadSizeForParallelSum)
+                coder.setBytes(&threadGroupSize, length: MemoryLayout<UInt>.size, index: 3)
+                coder.setThreadgroupMemoryLength(MemoryLayout<Float>.stride * ThreadSizeForParallelSum, index: 0) // 分配线程组内存
                 
-                //                coder.dispatchThreadgroups(summerGroups,sroup: summerGroupSize)
-                
-                
-                let threadGroupSize = MTLSize(width: 32, height: 1, depth: 1) // 每个线程组有32个线程
-                let numThreadGroups = MTLSize(width: 10, height: 1, depth: 1) // 10个线程组，每个线程组计算一个维度
-                
-                coder.setThreadgroupMemoryLength(MemoryLayout<Float>.stride * 32, index: 0) // 分配线程组内存
-                coder.dispatchThreadgroups(numThreadGroups, threadsPerThreadgroup: threadGroupSize)
+                coder.dispatchThreadgroups(summerGroups,threadsPerThreadgroup: summerGroupSize)
                 coder.endEncoding()
         }
-        
-        
-        func debugPrintBuffer(buffer: MTLBuffer, label: String) {
-                let bufferPointer = buffer.contents().assumingMemoryBound(to: Float.self)
-                let bufferSize = buffer.length / MemoryLayout<Float>.stride
-                print("\(label) content:\(bufferSize) number of blocks \(self.numBlocks)")
-        }
+  
         var counter:Int = 0
         func debugBuffer(sumGradient:MTLBuffer){
                 let w = self.videoWidth
@@ -386,7 +375,7 @@ class VideoAlignment: ObservableObject {
                 let numBlocksX = (self.videoWidth + self.sideOfBlock - 1) / self.sideOfBlock
                 let numBlocksY = (self.videoHeight + self.sideOfBlock - 1) / self.sideOfBlock
                 saveRawDataToFileWithDepth(fileName: "gpu_frame_quantity_\(self.sideOfBlock)_\(counter).json", buffer: avgGradientOfBlock!,
-                                           width: numBlocksX, height: numBlocksY, depth: HistorgramSize, type: Float.self)
+                                           width: numBlocksX, height: numBlocksY, depth: HistogramSize, type: Float.self)
                 saveRawDataToFile(fileName: "gpu_gradientSumOfOneFrame_\(counter).json", buffer: sumGradient,  width: 10, height: 1,  type: Float.self)
                 counter+=1
         }

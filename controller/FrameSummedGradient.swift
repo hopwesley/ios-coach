@@ -42,7 +42,7 @@ class FrameSummedGradient: ObservableObject {
         var pixelThreadGrpNo:MTLSize?
         var blockThreadGrpSize:MTLSize?
         var blockThreadGrpNo:MTLSize?
-        var  summerGroupSize:MTLSize = MTLSize(width: HistorgramSize, height: 1, depth: 1)
+        var  summerGroupSize:MTLSize = MTLSize(width: HistogramSize, height: 1, depth: 1)
         var summerGroups:MTLSize = MTLSize(width: 1, height: 1, depth: 1)
         
         
@@ -199,10 +199,10 @@ class FrameSummedGradient: ObservableObject {
                       let grayBufferT = device.makeBuffer(length: self.pixelSize * MemoryLayout<UInt8>.size, options: .storageModeShared),
                       let grayBufferX = device.makeBuffer(length: self.pixelSize * MemoryLayout<Int16>.size, options: .storageModeShared),
                       let grayBufferY = device.makeBuffer(length: self.pixelSize * MemoryLayout<Int16>.size, options: .storageModeShared),
-                      let avgGradientAllBlock = device.makeBuffer(length: numBlocks * HistorgramSize * MemoryLayout<Float>.stride,
+                      let avgGradientAllBlock = device.makeBuffer(length: numBlocks * HistogramSize * MemoryLayout<Float>.stride,
                                                                   options: .storageModeShared),
                       let pBuffer = device.makeBuffer(bytes: icosahedronCenterP, length: PBufferSize, options: .storageModeShared),
-                let sumBuffer = device.makeBuffer(length: HistorgramSize * MemoryLayout<Float>.stride, options: .storageModeShared) else{
+                let sumBuffer = device.makeBuffer(length: HistogramSize * MemoryLayout<Float>.stride, options: .storageModeShared) else{
                         throw ASError.gpuBufferErr
                 }
                 
@@ -235,8 +235,8 @@ class FrameSummedGradient: ObservableObject {
                 memset(gradientBufferT?.contents(), 0, self.pixelSize * MemoryLayout<UInt8>.stride)
                 memset(gradientBufferX?.contents(), 0, self.pixelSize * MemoryLayout<Int16>.stride)
                 memset(gradientBufferY?.contents(), 0, self.pixelSize * MemoryLayout<Int16>.stride)
-                memset(avgGradientOfBlock?.contents(), 0, numBlocks * HistorgramSize * MemoryLayout<Float>.stride)
-                memset(sumGradient?.contents(), 0, HistorgramSize * MemoryLayout<Float>.stride)
+                memset(avgGradientOfBlock?.contents(), 0, numBlocks * HistogramSize * MemoryLayout<Float>.stride)
+                memset(sumGradient?.contents(), 0, HistogramSize * MemoryLayout<Float>.stride)
         }
         
         func procFrameData(rawImgPre: MTLTexture, rawImgCur: MTLTexture) throws{
@@ -345,7 +345,7 @@ class FrameSummedGradient: ObservableObject {
                 let numBlocksX = (self.videoWidth + self.sideOfBlock - 1) / self.sideOfBlock
                 let numBlocksY = (self.videoHeight + self.sideOfBlock - 1) / self.sideOfBlock
                 saveRawDataToFileWithDepth(fileName: "gpu_frame_quantity_\(self.sideOfBlock).json", buffer: avgGradientOfBlock!,
-                                           width: numBlocksX, height: numBlocksY, depth: HistorgramSize, type: Float.self)
+                                           width: numBlocksX, height: numBlocksY, depth: HistogramSize, type: Float.self)
                 saveRawDataToFile(fileName: "gpu_gradientSumOfOneFrame.json", buffer: sumGradient!,  width: 10, height: 1,  type: Float.self)
         }
 }
