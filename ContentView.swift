@@ -85,8 +85,8 @@ struct ContentView: View {
                 
                 let startTime = Date()
                 
-                var histogramOfA: [MTLBuffer]? = nil
-                var histogramOfB: [MTLBuffer]? = nil
+                var histogramOfA: (MTLBuffer, Int)? = nil
+                var histogramOfB: (MTLBuffer, Int)? = nil
                 let group = DispatchGroup()
                 
                 // Show waiting view
@@ -125,9 +125,11 @@ struct ContentView: View {
                                 self.errorInfo = "parse frame gradient failed"
                                 return
                         }
-                        saveHistogramAsJSON(histogram: A, fileName: "gpu_frame_histogram_A.json")
-                        saveHistogramAsJSON(histogram: B, fileName: "gpu_frame_histogram_B.json")
-                        guard let (offsetA, offsetB) = findBestAlingOffset(histoA: A, histoB: B) else {
+                        let (bufferA, countA) = A
+                        let (bufferB, countB) = B
+                        
+                        guard let (offsetA, offsetB) = findBestAlignOffset(histoA: bufferA,countA: countA,
+                                                                           histoB: bufferB,countB: countB, sequenceLength: maxFrame) else {
                                 return
                         }
                         

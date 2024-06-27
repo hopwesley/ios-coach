@@ -137,7 +137,7 @@ class VideoAlignment: ObservableObject {
                 }
         }
         
-        func AlignVideo(completion: @escaping (Result<[MTLBuffer], Error>) -> Void) {
+        func AlignVideo(completion: @escaping (Result<(MTLBuffer, Int), Error>) -> Void) {
                 Task {
                         do {
                                 try prepareGpuResource(sideOfDesc: SideSizeOfLevelZero)
@@ -153,7 +153,7 @@ class VideoAlignment: ObservableObject {
                 }
         }
         
-        private func calculateFrameQuantizedAverageGradient(isDebug:Bool = false) async throws->[MTLBuffer]{
+        private func calculateFrameQuantizedAverageGradient(isDebug:Bool = false) async throws->(MTLBuffer, Int){
                 guard let url = self.videoURL else{
                         throw ASError.readVideoDataFailed
                 }
@@ -171,8 +171,12 @@ class VideoAlignment: ObservableObject {
                 reader.startReading()
                 
                 var preFrame:MTLTexture? = nil
+                let maxFrameCount = self.FrameCount! + 2
                 
-                var allFrameSumGradient:[MTLBuffer] = []
+                let bufferSize = maxFrameCount * 10 * MemoryLayout<Float>.stride
+                let allFrameSumGradient = device.makeBuffer(length: bufferSize, options: .storageModeShared)!
+                var currentOffset = 0
+                var frameCount = 0
                 
                 while let sampleBuffer = trackReaderOutput.copyNextSampleBuffer() {
                         guard  let frame = pixelBufferToTexture(sampleBuffer) else{
@@ -184,7 +188,10 @@ class VideoAlignment: ObservableObject {
                         }
                         let sumGradient =  try procFrameData(rawImgPre: preFrame!, rawImgCur: frame)
                         preFrame = frame
-                        allFrameSumGradient.append(sumGradient)
+                        //                        allFrameSumGradient.append(sumGradient)
+                        memcpy(allFrameSumGradient.contents() + currentOffset, sumGradient.contents(), 10 * MemoryLayout<Float>.stride)
+                        currentOffset += 10 * MemoryLayout<Float>.stride
+                        frameCount += 1
                         
                         let sumPointer = sumGradient.contents().assumingMemoryBound(to: Float.self)
                         if isDebug || sumPointer.pointee == 0{
@@ -194,8 +201,8 @@ class VideoAlignment: ObservableObject {
                                 }
                         }
                 }
-                print("frame sum gradient size:", allFrameSumGradient.count)
-                return allFrameSumGradient
+                print("frame sum gradient size:", frameCount)
+                return (allFrameSumGradient, frameCount)
         }
         
         func initGpuAndMemory() throws{
@@ -269,7 +276,7 @@ class VideoAlignment: ObservableObject {
                 memset(avgGradientOfBlock?.contents(), 0, numBlocks * HistogramSize * MemoryLayout<Float>.stride)
         }
         
-        func procFrameData(rawImgPre: MTLTexture, rawImgCur: MTLTexture) throws ->MTLBuffer{
+        func procFrameData(rawImgPre: MTLTexture, rawImgCur: MTLTexture) throws -> MTLBuffer{
                 
                 resetBuffer()
                 
@@ -366,7 +373,7 @@ class VideoAlignment: ObservableObject {
                 coder.dispatchThreadgroups(summerGroups,threadsPerThreadgroup: summerGroupSize)
                 coder.endEncoding()
         }
-  
+        
         var counter:Int = 0
         func debugBuffer(sumGradient:MTLBuffer){
                 let w = self.videoWidth

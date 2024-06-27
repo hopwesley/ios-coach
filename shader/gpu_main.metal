@@ -18,7 +18,8 @@ constant int8_t sobelY[9] = {-1, -2, -1,
         1,  2,  1};
 
 constant float phi = 1.61803398875; // φ = (1 + sqrt(5)) / 2
-
+constant int HistogramSize = 10;
+constant float MinNccVal = 0.95;
 
 kernel void  grayAndTimeDiff(texture2d<float, access::read> preTexture [[texture(0)]],
                              texture2d<float, access::read> texture [[texture(1)]],
@@ -76,9 +77,9 @@ kernel void spaceGradient(
 }
 
 
-inline float q_prime_l2_norm(float q_prime[10]) {
+inline float q_prime_l2_norm(float q_prime[HistogramSize]) {
         float norm = 0.0;
-        for (int i = 0; i < 10; ++i) {
+        for (int i = 0; i < HistogramSize; ++i) {
                 norm += q_prime[i] * q_prime[i];
         }
         return sqrt(norm);
@@ -87,7 +88,7 @@ inline float q_prime_l2_norm(float q_prime[10]) {
 inline void quantizeGradient(
                              float3 avgGradient,
                              constant float3 *normalizedP,
-                             device float *quantizeGradient,
+                             device float *qg,
                              uint index)
 {
         // 计算 g 的 L2 范数并归一化
@@ -97,10 +98,10 @@ inline void quantizeGradient(
         }
         float3 g_normalized = avgGradient / g_l2_norm;
         
-        float q_prime[10];  // 计算投影结果 q_i
-        for (int i = 0; i < 10; ++i) {
+        float q_prime[HistogramSize];  // 计算投影结果 q_i
+        for (int i = 0; i < HistogramSize; ++i) {
                 float bin_i = dot(normalizedP[i], g_normalized);
-                float bin_j = dot(normalizedP[i + 10], g_normalized);
+                float bin_j = dot(normalizedP[i + HistogramSize], g_normalized);
                 q_prime[i] = fabs(bin_i) + fabs(bin_j) - threshold;
                 q_prime[i] = max(q_prime[i], 0.0);
         }
@@ -110,8 +111,8 @@ inline void quantizeGradient(
                 return;
         }
         
-        for (int i = 0; i < 10; ++i) {
-                quantizeGradient[index * 10 + i] = (g_l2_norm * q_prime[i]) / q_prime_l2_len;
+        for (int i = 0; i < HistogramSize; ++i) {
+                qg[index * HistogramSize + i] = (g_l2_norm * q_prime[i]) / q_prime_l2_len;
         }
 }
 
@@ -146,22 +147,6 @@ kernel void quantizeAvgerageGradientOfBlock(
         quantizeGradient(sumGradient,normalizedP,avgGradientOneFrame, avgIndex);
 }
 
-kernel void sumQuantizedGradients2(
-                                   device float* avgGradientOneFrame [[buffer(0)]],
-                                   device float* finalGradient [[buffer(1)]],
-                                   constant uint &numBlocks [[buffer(2)]],
-                                   uint gid [[thread_position_in_grid]])
-{
-        if (gid >= 10) return;
-        
-        float sum = 0.0;
-        for (uint i = 0; i < numBlocks; ++i) {
-                sum += avgGradientOneFrame[i * 10 + gid];
-        }
-        finalGradient[gid] = sum;
-}
-
-
 kernel void sumQuantizedGradients(
                                   device float* avgGradientOneFrame [[buffer(0)]],
                                   device atomic_float* finalGradient [[buffer(1)]],
@@ -173,12 +158,12 @@ kernel void sumQuantizedGradients(
 {
         // 计算当前线程所属的维度
         uint dimension = gid / threadGroupSize;
-        if (dimension >= 10) return; // 确保只处理前 10 个维度
+        if (dimension >= HistogramSize) return; // 确保只处理前 10 个维度
         
         // 初始化局部累加结果
         float sum = 0.0;
         for (uint i = local_id; i < numBlocks; i += threadGroupSize) {
-                uint index = i * 10 + dimension;
+                uint index = i * HistogramSize + dimension;
                 sum += avgGradientOneFrame[index];
         }
         
@@ -195,5 +180,106 @@ kernel void sumQuantizedGradients(
         
         if (local_id == 0) {
                 atomic_fetch_add_explicit(&finalGradient[dimension], localSum[0], memory_order_relaxed);
+        }
+}
+
+// 计算NCC值的函数
+inline float calculateNCC(device float* histogramA, device float* histogramB) {
+        float sumA = 0.0;
+        float sumB = 0.0;
+        float meanA = 0.0;
+        float meanB = 0.0;
+        float numerator = 0.0;
+        float denominatorA = 0.0;
+        float denominatorB = 0.0;
+        
+        for (uint i = 0; i < HistogramSize; i++) {
+                sumA += histogramA[i];
+                sumB += histogramB[i];
+        }
+        meanA = sumA / float(HistogramSize);
+        meanB = sumB / float(HistogramSize);
+        
+        for (uint i = 0; i < HistogramSize; i++){
+                float diffA = histogramA[i] - meanA;
+                float diffB = histogramB[i] - meanB;
+                numerator += diffA * diffB;
+                denominatorA += diffA * diffA;
+                denominatorB += diffB * diffB;
+        }
+        
+        if (denominatorA == 0 || denominatorB == 0){
+                return 0;
+        }
+        return numerator / (sqrt(denominatorA) * sqrt(denominatorB));
+}
+
+
+kernel void nccOfAllFrameByHistogram(device float* aHisGramFloat [[buffer(0)]],
+                                     device float* bHisGramFloat [[buffer(1)]],
+                                     device float* nccValues [[buffer(2)]],
+                                     constant uint& width [[buffer(3)]],
+                                     constant uint& height [[buffer(4)]],
+                                     uint2 gid [[thread_position_in_grid]]) {
+        uint i = gid.x;
+        uint j = gid.y;
+        
+        if (i < width && j < height) {
+                float ncc = calculateNCC(&aHisGramFloat[i * 10], &bHisGramFloat[j * 10]);
+                if (ncc < MinNccVal){
+                        nccValues[j * width + i] = 0;
+                }else{
+                        nccValues[j * width + i] = ncc;
+                }
+                
+        }
+}
+
+kernel void calculateWeightedNCC(
+                                 device float* nccValues [[buffer(0)]],
+                                 device float* weightedNccValues [[buffer(1)]],
+                                 constant uint& width [[buffer(2)]],
+                                 constant uint& height [[buffer(3)]],
+                                 constant uint& sequenceLength [[buffer(4)]],
+                                 uint2 gid [[thread_position_in_grid]]
+                                 )
+{
+        uint i = gid.x;
+        uint j = gid.y;
+        
+        if (i <= width - sequenceLength && j <= height - sequenceLength) {
+                float sum = 0.0;
+                for (uint k = 0; k < sequenceLength; k++) {
+                        sum += nccValues[(j + k) * width + (i + k)];
+                }
+                weightedNccValues[j * (width - sequenceLength) + i] = sum;
+        }
+}
+
+inline void atomic_fetch_max(device atomic_float *object, float operand) {
+        float current = atomic_load_explicit(object, memory_order_relaxed);
+        while (current < operand && !atomic_compare_exchange_weak_explicit(object, &current, operand, memory_order_relaxed, memory_order_relaxed)) {
+                // Loop until the value is successfully updated
+        }
+}
+kernel void findMaxNCCValue(
+                            device float* weightedNccValues [[buffer(0)]],
+                            device atomic_float* maxSum [[buffer(1)]],
+                            device atomic_int* maxI [[buffer(2)]],
+                            device atomic_int* maxJ [[buffer(3)]],
+                            constant uint& newWidth [[buffer(4)]],
+                            constant uint& newHeight [[buffer(5)]],
+                            uint2 gid [[thread_position_in_grid]]
+                            )
+{
+        uint i = gid.x;
+        uint j = gid.y;
+        
+        float value = weightedNccValues[j * newWidth + i];
+        atomic_fetch_max(maxSum, value);
+        if (atomic_load_explicit(maxSum, memory_order_relaxed) == value) {
+                atomic_store_explicit(maxSum, value, memory_order_relaxed);
+                atomic_store_explicit(maxI, int(i), memory_order_relaxed);
+                atomic_store_explicit(maxJ, int(j), memory_order_relaxed);
         }
 }
