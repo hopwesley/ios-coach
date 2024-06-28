@@ -115,12 +115,7 @@ struct ContentView: View {
                         group.leave()
                 }
                 group.notify(queue: .global()) {
-                        let endTime = Date()  // Record the end time
-                        let executionTime = endTime.timeIntervalSince(startTime)
-                        DispatchQueue.main.async {
-                                self.processingTime = executionTime  // Update the processing time
-                                self.isProcessing = false  // Hide waiting view
-                        }
+                        
                         guard let A = histogramOfA, let B = histogramOfB else {
                                 self.errorInfo = "parse frame gradient failed"
                                 return
@@ -129,12 +124,18 @@ struct ContentView: View {
                         let (bufferB, countB) = B
                         
                         guard let (offsetA, offsetB) = findBestAlignOffset(histoA: bufferA,countA: countA,
-                                                                           histoB: bufferB,countB: countB, sequenceLength: maxFrame) else {
+                                                                           histoB: bufferB,countB: countB, seqLen: maxFrame) else {
                                 return
                         }
                         
                         videoCihper(url: videoCtlA.videoURL!, offset: offsetA)
                         videoCihper(url: videoCtlB.videoURL!, offset: offsetB)
+                        let endTime = Date()  // Record the end time
+                        let executionTime = endTime.timeIntervalSince(startTime)
+                        DispatchQueue.main.async {
+                                self.processingTime = executionTime  // Update the processing time
+                                self.isProcessing = false  // Hide waiting view
+                        }
                 }
         }
 }

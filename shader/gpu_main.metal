@@ -17,9 +17,9 @@ constant int8_t sobelY[9] = {-1, -2, -1,
         0,  0,  0,
         1,  2,  1};
 
-constant float phi = 1.61803398875; // φ = (1 + sqrt(5)) / 2
+
 constant int HistogramSize = 10;
-constant float MinNccVal = 0.95;
+constant float MinNccVal = 0.9;
 
 kernel void  grayAndTimeDiff(texture2d<float, access::read> preTexture [[texture(0)]],
                              texture2d<float, access::read> texture [[texture(1)]],
@@ -221,19 +221,22 @@ kernel void nccOfAllFrameByHistogram(device float* aHisGramFloat [[buffer(0)]],
                                      constant uint& width [[buffer(3)]],
                                      constant uint& height [[buffer(4)]],
                                      uint2 gid [[thread_position_in_grid]]) {
-        uint i = gid.x;
-        uint j = gid.y;
         
-        if (i < width && j < height) {
-                float ncc = calculateNCC(&aHisGramFloat[i * 10], &bHisGramFloat[j * 10]);
-                if (ncc < MinNccVal){
-                        nccValues[j * width + i] = 0;
-                }else{
-                        nccValues[j * width + i] = ncc;
-                }
-                
+        uint aIdx = gid.y;
+        uint bIdx = gid.x;
+        if (gid.x >=  width|| gid.y >= height) {
+                return;
+        }
+        
+        float ncc = calculateNCC(&aHisGramFloat[aIdx * 10], &bHisGramFloat[bIdx * 10]);
+        int index = aIdx*width+bIdx;
+        if (ncc < MinNccVal){
+                nccValues[index] = 0;
+        }else{
+                nccValues[index] = ncc;
         }
 }
+
 
 kernel void calculateWeightedNCC(
                                  device float* nccValues [[buffer(0)]],
@@ -241,45 +244,20 @@ kernel void calculateWeightedNCC(
                                  constant uint& width [[buffer(2)]],
                                  constant uint& height [[buffer(3)]],
                                  constant uint& sequenceLength [[buffer(4)]],
+                                 constant uint& origWidth [[buffer(5)]],
                                  uint2 gid [[thread_position_in_grid]]
                                  )
 {
-        uint i = gid.x;
-        uint j = gid.y;
+        uint bIdx = gid.x;
+        uint aIdx = gid.y;
+        if (gid.x >=  width|| gid.y >= height) {
+                return;
+        }
         
-        if (i <= width - sequenceLength && j <= height - sequenceLength) {
-                float sum = 0.0;
-                for (uint k = 0; k < sequenceLength; k++) {
-                        sum += nccValues[(j + k) * width + (i + k)];
-                }
-                weightedNccValues[j * (width - sequenceLength) + i] = sum;
+        float sum = 0.0;
+        for (uint k = 0; k < sequenceLength; k++) {
+                uint index = (aIdx + k) * origWidth + (bIdx + k);
+                sum += nccValues[index];
         }
-}
-
-inline void atomic_fetch_max(device atomic_float *object, float operand) {
-        float current = atomic_load_explicit(object, memory_order_relaxed);
-        while (current < operand && !atomic_compare_exchange_weak_explicit(object, &current, operand, memory_order_relaxed, memory_order_relaxed)) {
-                // Loop until the value is successfully updated
-        }
-}
-kernel void findMaxNCCValue(
-                            device float* weightedNccValues [[buffer(0)]],
-                            device atomic_float* maxSum [[buffer(1)]],
-                            device atomic_int* maxI [[buffer(2)]],
-                            device atomic_int* maxJ [[buffer(3)]],
-                            constant uint& newWidth [[buffer(4)]],
-                            constant uint& newHeight [[buffer(5)]],
-                            uint2 gid [[thread_position_in_grid]]
-                            )
-{
-        uint i = gid.x;
-        uint j = gid.y;
-        
-        float value = weightedNccValues[j * newWidth + i];
-        atomic_fetch_max(maxSum, value);
-        if (atomic_load_explicit(maxSum, memory_order_relaxed) == value) {
-                atomic_store_explicit(maxSum, value, memory_order_relaxed);
-                atomic_store_explicit(maxI, int(i), memory_order_relaxed);
-                atomic_store_explicit(maxJ, int(j), memory_order_relaxed);
-        }
+        weightedNccValues[aIdx * width + bIdx] = sum;
 }
