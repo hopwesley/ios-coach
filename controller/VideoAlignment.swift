@@ -12,6 +12,7 @@ import CoreImage
 class VideoAlignment: ObservableObject {
         
         @Published var videoURL: URL?
+        @Published var cipheredVideoUrl: URL?
         @Published var videoInfo:String?
         @Published var FrameCount:Int?
         var videoWidth:Int = 0
@@ -123,20 +124,6 @@ class VideoAlignment: ObservableObject {
                 return inputTexture
         }
         
-        func DebugAlignVideo(){
-                
-                Task{
-                        do{
-                                try prepareGpuResource(sideOfDesc:SideSizeOfLevelZero)
-                                let _ = try await calculateFrameQuantizedAverageGradient(isDebug: true)
-                        }catch{
-                                DispatchQueue.main.async {
-                                        self.videoInfo =  error.localizedDescription
-                                }
-                        }
-                }
-        }
-        
         func AlignVideo(completion: @escaping (Result<(MTLBuffer, Int), Error>) -> Void) {
                 Task {
                         do {
@@ -153,7 +140,7 @@ class VideoAlignment: ObservableObject {
                 }
         }
         
-        private func calculateFrameQuantizedAverageGradient(isDebug:Bool = false) async throws->(MTLBuffer, Int){
+        private func calculateFrameQuantizedAverageGradient() async throws->(MTLBuffer, Int){
                 guard let url = self.videoURL else{
                         throw ASError.readVideoDataFailed
                 }
@@ -192,14 +179,12 @@ class VideoAlignment: ObservableObject {
                         memcpy(allFrameSumGradient.contents() + currentOffset, sumGradient.contents(), 10 * MemoryLayout<Float>.stride)
                         currentOffset += 10 * MemoryLayout<Float>.stride
                         frameCount += 1
-                        
+#if DEBUG
                         let sumPointer = sumGradient.contents().assumingMemoryBound(to: Float.self)
-                        if isDebug || sumPointer.pointee == 0{
+                        if sumPointer.pointee == 0{
                                 debugBuffer(sumGradient: sumGradient)
-                                if isDebug{
-                                        break
-                                }
                         }
+#endif
                 }
                 print("frame sum gradient size:", frameCount)
                 return (allFrameSumGradient, frameCount)
@@ -391,4 +376,77 @@ class VideoAlignment: ObservableObject {
                 saveRawDataToFile(fileName: "gpu_gradientSumOfOneFrame_\(counter).json", buffer: sumGradient,  width: 10, height: 1,  type: Float.self)
                 counter+=1
         }
+        
+        func cipherVideo(offset: Int, len: Int) async throws {
+            guard let videoURL = self.videoURL else {
+                print("No video URL found")
+                return
+            }
+            
+            let asset = AVAsset(url: videoURL)
+            let outputURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(videoURL.lastPathComponent+"_trimmedVideo.mp4")
+            
+            // Remove existing file at output URL
+            try? FileManager.default.removeItem(at: outputURL)
+            
+            guard let videoTrack = try await asset.loadTracks(withMediaType: .video).first else {
+                print("No valid video track found")
+                return
+            }
+            
+            let frameRate = try await videoTrack.load(.nominalFrameRate)
+            let startTime = CMTime(value: CMTimeValue(offset), timescale: CMTimeScale(frameRate))
+            let duration = CMTime(value: CMTimeValue(len), timescale: CMTimeScale(frameRate))
+            
+            let composition = AVMutableComposition()
+            guard let compositionTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+                print("Failed to create composition track")
+                return
+            }
+            
+            do {
+                try compositionTrack.insertTimeRange(CMTimeRange(start: startTime, duration: duration), of: videoTrack, at: .zero)
+                
+                // Check export preset compatibility
+                let isCompatible = try await withCheckedThrowingContinuation { continuation in
+                        AVAssetExportSession.determineCompatibility(ofExportPreset: AVAssetExportPresetHighestQuality, with: composition, outputFileType: .mp4) { compatible in
+                        continuation.resume(returning: compatible)
+                    }
+                }
+                
+                guard isCompatible else {
+                    print("Export preset is not compatible with the asset")
+                    return
+                }
+                
+                guard let exporter = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
+                    print("Failed to create exporter")
+                    return
+                }
+                
+                exporter.outputURL = outputURL
+                exporter.outputFileType = .mp4
+                
+                try await withCheckedThrowingContinuation { continuation in
+                    exporter.exportAsynchronously {
+                        switch exporter.status {
+                        case .completed:
+                            DispatchQueue.main.async {
+                                self.cipheredVideoUrl = outputURL
+                                print("Video trimmed successfully")
+                            }
+                            continuation.resume()
+                        case .failed:
+                            continuation.resume(throwing: exporter.error ?? NSError(domain: "Unknown error", code: -1, userInfo: nil))
+                        default:
+                            break
+                        }
+                    }
+                }
+            } catch {
+                print("Error during composition: \(error)")
+            }
+        }
+
+
 }

@@ -9,7 +9,7 @@ import MetalKit
 import simd
 import Metal
 
-func findBestAlignOffset(histoA: MTLBuffer, countA: Int, histoB: MTLBuffer, countB: Int,seqLen:Int) -> (Int32, Int32)? {
+func findBestAlignOffset(histoA: MTLBuffer, countA: Int, histoB: MTLBuffer, countB: Int,seqLen:Int) -> (Int, Int)? {
         
         let device = MTLCreateSystemDefaultDevice()!
         let commandQueue = device.makeCommandQueue()!
@@ -83,6 +83,9 @@ func findBestAlignOffset(histoA: MTLBuffer, countA: Int, histoB: MTLBuffer, coun
                 return nil
         }
         
+        
+        
+#if DEBUG
         saveRawDataToFile(fileName: "gpu_frame_histogram_A.json",
                           buffer: histoA, width: 10, height: countA, type: Float.self)
         saveRawDataToFile(fileName: "gpu_frame_histogram_B.json",
@@ -92,16 +95,12 @@ func findBestAlignOffset(histoA: MTLBuffer, countA: Int, histoB: MTLBuffer, coun
         
         saveRawDataToFile(fileName: "gpu_ncc_weighted_sum.json",
                           buffer: weightedNccValuesBuffer, width: weightedWidth, height: weightedHeight, type: Float.self)
+#endif
         
-        
-        let aIdx = Int32(maxIndex / weightedWidth)
-        let bIdx = Int32(maxIndex % weightedWidth)
+        let aIdx = maxIndex / weightedWidth
+        let bIdx = maxIndex % weightedWidth
         print("aIdx=\(aIdx) bIdx=\(bIdx) val=\(maxValue) maxIdx = \(maxIndex)")
         return (aIdx, bIdx)
-}
-
-func videoCihper(url:URL,offset:Int32){
-        
 }
 
 func findMaxValueInBuffer(buffer: MTLBuffer, count: Int) -> (Float, Int)? {

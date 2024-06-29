@@ -1,6 +1,6 @@
 import SwiftUI
+import AVKit
 import AVFoundation
-import _AVKit_SwiftUI
 import PhotosUI
 
 struct ContentView: View {
@@ -8,88 +8,87 @@ struct ContentView: View {
         @State private var processingTime: Double? = nil
         @StateObject private var videoCtlA = VideoAlignment()
         @StateObject private var videoCtlB = VideoAlignment()
-        
         @State private var sliderValue: Double = 20000
         @State private var maxSliderValue: Double = 100.0
         @State private var isProcessing = false
+        @State private var showCompareView = false
         
         var body: some View {
-                ZStack {
-                        ScrollView {
-                                VStack {
-                                        VideoPickerView(videoController: videoCtlA)
-                                        VideoPickerView(videoController: videoCtlB)
-                                }
-                                VStack {
-                                        Button(action: {
-                                                videoCtlA.DebugAlignVideo()
-                                        }) {
-                                                Text("Test")
-                                        }
-                                        .frame(width: 160, height: 80)
-                                        .background(Color.gray)
-                                        
-                                        Text(errorInfo)
-                                        if let time = processingTime {
-                                                Text("Processing time: \(time, specifier: "%.2f") seconds")
-                                        }
-                                }
-                                VStack {
-                                        if let aCount = videoCtlA.FrameCount, let bCount = videoCtlB.FrameCount {
-                                                let msv = Double(min(aCount, bCount))
-                                                Text("对齐帧数: \(Int(sliderValue))")
-                                                HStack {
-                                                        Text("1")
-                                                        Slider(value: $sliderValue, in: 1...Double(msv))
-                                                        Text("\(Int(msv))")
+                NavigationView {
+                        ZStack {
+                                ScrollView {
+                                        VStack {
+                                                VideoPickerView(videoController: videoCtlA)
+                                                VideoPickerView(videoController: videoCtlB)
+                                                Text(errorInfo)
+                                                if let time = processingTime {
+                                                        Text("Processing time: \(time, specifier: "%.2f") seconds")
                                                 }
-                                                .padding()
-                                                .onAppear {
-                                                        self.maxSliderValue = msv
-                                                        if Int(sliderValue) > Int(maxSliderValue) {
-                                                                sliderValue = Double(maxSliderValue)
+                                        }
+                                        
+                                        VStack {
+                                                if let aCount = videoCtlA.FrameCount, let bCount = videoCtlB.FrameCount {
+                                                        let msv = Double(min(aCount, bCount))
+                                                        Text("对齐帧数: \(Int(sliderValue))")
+                                                        HStack {
+                                                                Text("1")
+                                                                Slider(value: $sliderValue, in: 1...Double(msv))
+                                                                Text("\(Int(msv))")
+                                                        }
+                                                        .padding()
+                                                        .onAppear {
+                                                                self.maxSliderValue = msv
+                                                                if Int(sliderValue) > Int(maxSliderValue) {
+                                                                        sliderValue = Double(maxSliderValue)
+                                                                }
                                                         }
                                                 }
                                         }
+                                        
+                                        Button(action: {
+                                                processingTimeAlign(maxFrame: Int(sliderValue))
+                                        }) {
+                                                Text("对齐")
+                                        }
+                                        .frame(width: 160, height: 80)
+                                        .background(Color.gray)
                                 }
+                                .allowsHitTesting(!isProcessing)
                                 
-                                Button(action: {
-                                        processingTimeAlign(maxFrame: Int(sliderValue))
-                                }) {
-                                        Text("对齐")
+                                if isProcessing {
+                                        VStack {
+                                                Text("正在处理，请稍候...")
+                                                        .padding()
+                                                        .background(Color.black.opacity(0.75))
+                                                        .cornerRadius(10)
+                                                        .foregroundColor(.white)
+                                        }
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                        .background(Color.black.opacity(0.5).edgesIgnoringSafeArea(.all))
                                 }
-                                .frame(width: 160, height: 80)
-                                .background(Color.gray)
                         }
-                        .allowsHitTesting(!isProcessing)
-                        if isProcessing {
-                                // Waiting view
-                                VStack {
-                                        Text("正在处理，请稍候...")
-                                                .padding()
-                                                .background(Color.black.opacity(0.75))
-                                                .cornerRadius(10)
-                                                .foregroundColor(.white)
-                                }
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .background(Color.black.opacity(0.5).edgesIgnoringSafeArea(.all))
-                        }
+                        .background(
+                            NavigationLink(
+                                destination: CompareView(videoCtlA: videoCtlA, videoCtlB: videoCtlB, processingTime: processingTime),
+                                isActive: $showCompareView,
+                                label: { EmptyView() }
+                            )
+                        )
+                        .navigationBarTitle("Your Title")
                 }
         }
         
         func processingTimeAlign(maxFrame: Int) {
                 guard videoCtlA.videoURL != nil, videoCtlB.videoURL != nil else {
-                        print("need 2 video to be compared")
+                        print("需要两个视频进行比较")
                         return
                 }
                 
                 let startTime = Date()
-                
                 var histogramOfA: (MTLBuffer, Int)? = nil
                 var histogramOfB: (MTLBuffer, Int)? = nil
                 let group = DispatchGroup()
                 
-                // Show waiting view
                 DispatchQueue.main.async {
                         self.isProcessing = true
                 }
@@ -100,7 +99,7 @@ struct ContentView: View {
                         case .success(let buffer):
                                 histogramOfA = buffer
                         case .failure(let error):
-                                self.errorInfo = "Failed to align video A: \(error.localizedDescription)"
+                                self.errorInfo = "无法对齐视频A: \(error.localizedDescription)"
                         }
                         group.leave()
                 }
@@ -110,31 +109,44 @@ struct ContentView: View {
                         case .success(let buffer):
                                 histogramOfB = buffer
                         case .failure(let error):
-                                self.errorInfo = "Failed to align video B: \(error.localizedDescription)"
+                                self.errorInfo = "无法对齐视频B: \(error.localizedDescription)"
                         }
                         group.leave()
                 }
                 group.notify(queue: .global()) {
-                        
                         guard let A = histogramOfA, let B = histogramOfB else {
-                                self.errorInfo = "parse frame gradient failed"
+                                self.errorInfo = "解析帧梯度失败"
                                 return
                         }
                         let (bufferA, countA) = A
                         let (bufferB, countB) = B
                         
-                        guard let (offsetA, offsetB) = findBestAlignOffset(histoA: bufferA,countA: countA,
-                                                                           histoB: bufferB,countB: countB, seqLen: maxFrame) else {
+                        guard let (offsetA, offsetB) = findBestAlignOffset(histoA: bufferA, countA: countA,
+                                                                           histoB: bufferB, countB: countB, seqLen: maxFrame) else {
                                 return
                         }
                         
-                        videoCihper(url: videoCtlA.videoURL!, offset: offsetA)
-                        videoCihper(url: videoCtlB.videoURL!, offset: offsetB)
-                        let endTime = Date()  // Record the end time
+                        print("aIdx=\(offsetA) bIdx=\(offsetB)")
+                        let endTime = Date()
                         let executionTime = endTime.timeIntervalSince(startTime)
+                        Task {
+                                do {
+                                        async let resultA: () = videoCtlA.cipherVideo(offset: offsetA, len: maxFrame)
+                                        async let resultB: () =  videoCtlB.cipherVideo(offset: offsetB, len: maxFrame)
+                                        
+                                        try await resultA
+                                        try await resultB
+                                } catch let err {
+                                        DispatchQueue.main.async {
+                                                self.errorInfo = err.localizedDescription
+                                        }
+                                }
+                        }
+                        
                         DispatchQueue.main.async {
-                                self.processingTime = executionTime  // Update the processing time
-                                self.isProcessing = false  // Hide waiting view
+                                self.processingTime = executionTime
+                                self.isProcessing = false
+                                self.showCompareView = true // 设置为true以显示CompareView
                         }
                 }
         }
@@ -148,8 +160,8 @@ struct VideoPickerView: View {
                 VStack {
                         if let videoUrl = videoController.videoURL {
                                 VideoPlayer(player: AVPlayer(url: videoUrl))
-                                        .frame(height: 400) // 固定高度
-                                        .background(Color.black) // 设置背景颜色以确保视频显示区域
+                                        .frame(height: 400)
+                                        .background(Color.black)
                                 Button(action: {
                                         videoController.removeVideo()
                                 }) {
@@ -169,7 +181,7 @@ struct VideoPickerView: View {
                                         Image(systemName: "plus")
                                                 .font(.largeTitle)
                                                 .padding()
-                                                .frame(height: 200) // 固定高度
+                                                .frame(height: 200)
                                                 .frame(maxWidth: .infinity)
                                                 .background(Color.gray.opacity(0.3))
                                                 .cornerRadius(10)
@@ -184,3 +196,20 @@ struct VideoPickerView: View {
                 }
         }
 }
+
+struct CompareView: View {
+        @ObservedObject var videoCtlA: VideoAlignment
+        @ObservedObject var videoCtlB: VideoAlignment
+        var processingTime: Double?
+        
+        var body: some View {
+                VStack {
+                        if let time = processingTime {
+                                Text("处理时间: \(time, specifier: "%.2f") 秒")
+                        }
+                        Spacer()
+                }
+        }
+}
+
+
