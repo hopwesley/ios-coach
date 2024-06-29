@@ -192,19 +192,58 @@ struct VideoPickerView: View {
         }
 }
 
+
 struct CompareView: View {
         @ObservedObject var videoCtlA: VideoAlignment
         @ObservedObject var videoCtlB: VideoAlignment
         var processingTime: Double?
+        var comparedUrl: URL?
         
         var body: some View {
-                VStack {
+                VStack(spacing: 20) {
                         if let time = processingTime {
                                 Text("处理时间: \(time, specifier: "%.2f") 秒")
+                                        .padding(.top, 20) // Adjust top padding
                         }
-                        Spacer()
+                        
+                        if let urlA = videoCtlA.cipheredVideoUrl, let urlB = videoCtlB.cipheredVideoUrl {
+                                HStack(spacing: 20) {
+                                        VideoPlayer(player: AVPlayer(url: urlA))
+                                                .frame(height: 200)
+                                                .background(Color.black)
+                                        
+                                        VideoPlayer(player: AVPlayer(url: urlB))
+                                                .frame(height: 200)
+                                                .background(Color.black)
+                                }
+                                
+                                Button(action: {
+                                        compareVideo()
+                                }) {
+                                        Text("对比视频")
+                                                .frame(width: 160, height: 80) // Adjust button size
+                                                .background(Color.gray)
+                                                .foregroundColor(.white)
+                                                .cornerRadius(10)
+                                }
+                                .padding(.top, 20) // Adjust top padding
+                                
+                                if let comparedUrl = comparedUrl {
+                                        VideoPlayer(player: AVPlayer(url: comparedUrl))
+                                                .frame(height: 200)
+                                                .background(Color.black)
+                                }
+                        }
                 }
+                .padding(20) // Add padding around the entire content
+                .background(Color.white) // Add a white background
+                .cornerRadius(10) // Apply corner radius to the entire view
+                .shadow(radius: 5) // Add shadow for better visibility
+        }
+        
+        func compareVideo() {
+                // Implement video comparison logic here
+                // For example, set comparedUrl to the comparison result URL
+                // You would need to implement the logic based on your requirements
         }
 }
-
-
