@@ -15,7 +15,7 @@ struct ContentView: View {
         
         
         var body: some View {
-                NavigationView {
+                NavigationStack {
                         ZStack {
                                 ScrollView {
                                         VStack {
@@ -67,14 +67,9 @@ struct ContentView: View {
                                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                                         .background(Color.black.opacity(0.5).edgesIgnoringSafeArea(.all))
                                 }
+                        }.navigationDestination(isPresented: $showCompareView) {
+                                CompareView(videoCtlA: videoCtlA, videoCtlB: videoCtlB, processingTime: processingTime)
                         }
-                        .background(
-                                NavigationLink(
-                                        destination: CompareView(videoCtlA: videoCtlA, videoCtlB: videoCtlB, processingTime: processingTime),
-                                        isActive: $showCompareView,
-                                        label: { EmptyView() }
-                                )
-                        )
                 }
         }
         
