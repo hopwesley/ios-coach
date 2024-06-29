@@ -116,7 +116,7 @@ struct ContentView: View {
                         let (bufferA, countA) = A
                         let (bufferB, countB) = B
                         
-                        guard let (offsetA, offsetB) = findBestAlignOffset(histoA: bufferA, countA: countA,
+                        guard let (offsetA, offsetB, seqLen) = findBestAlignOffset(histoA: bufferA, countA: countA,
                                                                            histoB: bufferB, countB: countB, seqLen: maxFrame) else {
                                 return
                         }
@@ -126,8 +126,8 @@ struct ContentView: View {
                         let executionTime = endTime.timeIntervalSince(startTime)
                         Task {
                                 do {
-                                        async let resultA: () = videoCtlA.cipherVideo(offset: offsetA, len: maxFrame)
-                                        async let resultB: () =  videoCtlB.cipherVideo(offset: offsetB, len: maxFrame)
+                                        async let resultA: () = videoCtlA.cipherVideo(buffer:bufferA, offset: offsetA, len: seqLen)
+                                        async let resultB: () = videoCtlB.cipherVideo(buffer:bufferB,offset: offsetB, len: seqLen)
                                         
                                         try await resultA
                                         try await resultB

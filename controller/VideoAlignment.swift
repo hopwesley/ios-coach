@@ -47,6 +47,8 @@ class VideoAlignment: ObservableObject {
         var  summerGroupSize:MTLSize = MTLSize(width: ThreadSizeForParallelSum, height: 1, depth: 1)
         var summerGroups:MTLSize = MTLSize(width: HistogramSize, height: 1, depth: 1)
         
+        var cipheredBlockAvgGradient:MTLBuffer?
+        
         
         func removeVideo(){
                 if let url = self.videoURL{
@@ -377,76 +379,86 @@ class VideoAlignment: ObservableObject {
                 counter+=1
         }
         
-        func cipherVideo(offset: Int, len: Int) async throws {
-            guard let videoURL = self.videoURL else {
-                print("No video URL found")
-                return
-            }
-            
-            let asset = AVAsset(url: videoURL)
-            let outputURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(videoURL.lastPathComponent+"_trimmedVideo.mp4")
-            
-            // Remove existing file at output URL
-            try? FileManager.default.removeItem(at: outputURL)
-            
-            guard let videoTrack = try await asset.loadTracks(withMediaType: .video).first else {
-                print("No valid video track found")
-                return
-            }
-            
-            let frameRate = try await videoTrack.load(.nominalFrameRate)
-            let startTime = CMTime(value: CMTimeValue(offset), timescale: CMTimeScale(frameRate))
-            let duration = CMTime(value: CMTimeValue(len), timescale: CMTimeScale(frameRate))
-            
-            let composition = AVMutableComposition()
-            guard let compositionTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
-                print("Failed to create composition track")
-                return
-            }
-            
-            do {
-                try compositionTrack.insertTimeRange(CMTimeRange(start: startTime, duration: duration), of: videoTrack, at: .zero)
-                
-                // Check export preset compatibility
-                let isCompatible = try await withCheckedThrowingContinuation { continuation in
-                        AVAssetExportSession.determineCompatibility(ofExportPreset: AVAssetExportPresetHighestQuality, with: composition, outputFileType: .mp4) { compatible in
-                        continuation.resume(returning: compatible)
-                    }
+        func cipherVideo(buffer:MTLBuffer, offset: Int, len: Int) async throws {
+                guard let videoURL = self.videoURL else {
+                        throw ASError.cipherErr
                 }
                 
-                guard isCompatible else {
-                    print("Export preset is not compatible with the asset")
-                    return
+                let startIndex = offset * HistogramSize // 开始位置
+                var trimmedBuffer = [Float](repeating: 0, count: len * HistogramSize)
+                for i in 0..<(len * HistogramSize) {
+                        trimmedBuffer[i] = buffer.contents().load(fromByteOffset: (startIndex + i) * MemoryLayout<Float>.stride, as: Float.self)
                 }
                 
-                guard let exporter = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
-                    print("Failed to create exporter")
-                    return
+                guard let resultBuffer = device.makeBuffer(bytes: &trimmedBuffer, length: len * 10 * MemoryLayout<Float>.stride, options: []) else{
+                        throw ASError.cipherErr
+                }
+                self.cipheredBlockAvgGradient = resultBuffer
+                
+                let asset = AVAsset(url: videoURL)
+                let outputURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(videoURL.lastPathComponent+"_trimmedVideo.mp4")
+#if DEBUG
+                saveRawDataToFile(fileName: outputURL.lastPathComponent+".json", buffer: resultBuffer, width: 10, height: len, type: Float.self)
+#endif
+                // Remove existing file at output URL
+                try? FileManager.default.removeItem(at: outputURL)
+                
+                guard let videoTrack = try await asset.loadTracks(withMediaType: .video).first else {
+                        print("No valid video track found")
+                        return
                 }
                 
-                exporter.outputURL = outputURL
-                exporter.outputFileType = .mp4
+                let frameRate = try await videoTrack.load(.nominalFrameRate)
+                let startTime = CMTime(value: CMTimeValue(offset), timescale: CMTimeScale(frameRate))
+                let duration = CMTime(value: CMTimeValue(len), timescale: CMTimeScale(frameRate))
                 
-                try await withCheckedThrowingContinuation { continuation in
-                    exporter.exportAsynchronously {
-                        switch exporter.status {
-                        case .completed:
-                            DispatchQueue.main.async {
-                                self.cipheredVideoUrl = outputURL
-                                print("Video trimmed successfully")
-                            }
-                            continuation.resume()
-                        case .failed:
-                            continuation.resume(throwing: exporter.error ?? NSError(domain: "Unknown error", code: -1, userInfo: nil))
-                        default:
-                            break
+                let composition = AVMutableComposition()
+                guard let compositionTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+                        print("Failed to create composition track")
+                        return
+                }
+                
+                do {
+                        try compositionTrack.insertTimeRange(CMTimeRange(start: startTime, duration: duration), of: videoTrack, at: .zero)
+                        
+                        // Check export preset compatibility
+                        let isCompatible = try await withCheckedThrowingContinuation { continuation in
+                                AVAssetExportSession.determineCompatibility(ofExportPreset: AVAssetExportPresetHighestQuality, with: composition, outputFileType: .mp4) { compatible in
+                                        continuation.resume(returning: compatible)
+                                }
                         }
-                    }
+                        
+                        guard isCompatible else {
+                                print("Export preset is not compatible with the asset")
+                                return
+                        }
+                        
+                        guard let exporter = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
+                                print("Failed to create exporter")
+                                return
+                        }
+                        
+                        exporter.outputURL = outputURL
+                        exporter.outputFileType = .mp4
+                        
+                        try await withCheckedThrowingContinuation { continuation in
+                                exporter.exportAsynchronously {
+                                        switch exporter.status {
+                                        case .completed:
+                                                DispatchQueue.main.async {
+                                                        self.cipheredVideoUrl = outputURL
+                                                        print("Video trimmed successfully")
+                                                }
+                                                continuation.resume()
+                                        case .failed:
+                                                continuation.resume(throwing: exporter.error ?? NSError(domain: "Unknown error", code: -1, userInfo: nil))
+                                        default:
+                                                break
+                                        }
+                                }
+                        }
+                } catch {
+                        print("Error during composition: \(error)")
                 }
-            } catch {
-                print("Error during composition: \(error)")
-            }
         }
-
-
 }

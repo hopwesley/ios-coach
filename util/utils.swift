@@ -309,6 +309,7 @@ enum ASError: Error {
         case gpuEncoderErr
         case gpuDeviceErr
         case shaderLoadErr
+        case cipherErr
 }
 
 let constMaxVideoLen = 20.0
@@ -331,6 +332,8 @@ extension ASError: LocalizedError {
                         return NSLocalizedString("Gpu invalid", comment: "")
                 case .shaderLoadErr:
                         return NSLocalizedString("Shader load failed", comment: "")
+                case .cipherErr:
+                        return NSLocalizedString("Align video and cipher failed", comment: "")
                 }
         }
 }

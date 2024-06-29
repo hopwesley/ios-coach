@@ -9,7 +9,7 @@ import MetalKit
 import simd
 import Metal
 
-func findBestAlignOffset(histoA: MTLBuffer, countA: Int, histoB: MTLBuffer, countB: Int,seqLen:Int) -> (Int, Int)? {
+func findBestAlignOffset(histoA: MTLBuffer, countA: Int, histoB: MTLBuffer, countB: Int,seqLen:Int) -> (Int, Int, Int)? {
         
         let device = MTLCreateSystemDefaultDevice()!
         let commandQueue = device.makeCommandQueue()!
@@ -100,7 +100,7 @@ func findBestAlignOffset(histoA: MTLBuffer, countA: Int, histoB: MTLBuffer, coun
         let aIdx = maxIndex / weightedWidth
         let bIdx = maxIndex % weightedWidth
         print("aIdx=\(aIdx) bIdx=\(bIdx) val=\(maxValue) maxIdx = \(maxIndex)")
-        return (aIdx, bIdx)
+        return (aIdx, bIdx, sequenceLength)
 }
 
 func findMaxValueInBuffer(buffer: MTLBuffer, count: Int) -> (Float, Int)? {
