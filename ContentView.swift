@@ -13,6 +13,7 @@ struct ContentView: View {
         @State private var isProcessing = false
         @State private var showCompareView = false
         
+        
         var body: some View {
                 NavigationView {
                         ZStack {
@@ -68,13 +69,12 @@ struct ContentView: View {
                                 }
                         }
                         .background(
-                            NavigationLink(
-                                destination: CompareView(videoCtlA: videoCtlA, videoCtlB: videoCtlB, processingTime: processingTime),
-                                isActive: $showCompareView,
-                                label: { EmptyView() }
-                            )
+                                NavigationLink(
+                                        destination: CompareView(videoCtlA: videoCtlA, videoCtlB: videoCtlB, processingTime: processingTime),
+                                        isActive: $showCompareView,
+                                        label: { EmptyView() }
+                                )
                         )
-                        .navigationBarTitle("Your Title")
                 }
         }
         
