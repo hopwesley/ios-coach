@@ -68,7 +68,7 @@ struct ContentView: View {
                                         .background(Color.black.opacity(0.5).edgesIgnoringSafeArea(.all))
                                 }
                         }.navigationDestination(isPresented: $showCompareView) {
-                                CompareView(videoCtlA: videoCtlA, videoCtlB: videoCtlB, processingTime: processingTime)
+                                CompareView(urlA: videoCtlA.cipheredVideoUrl, urlB: videoCtlB.cipheredVideoUrl, processingTime: processingTime)
                         }
                 }
         }
@@ -117,7 +117,7 @@ struct ContentView: View {
                         let (bufferB, countB) = B
                         
                         guard let (offsetA, offsetB, seqLen) = findBestAlignOffset(histoA: bufferA, countA: countA,
-                                                                           histoB: bufferB, countB: countB, seqLen: maxFrame) else {
+                                                                                   histoB: bufferB, countB: countB, seqLen: maxFrame) else {
                                 return
                         }
                         
@@ -131,119 +131,17 @@ struct ContentView: View {
                                         
                                         try await resultA
                                         try await resultB
+                                        DispatchQueue.main.async {
+                                                self.processingTime = executionTime
+                                                self.isProcessing = false
+                                                self.showCompareView = true // 设置为true以显示CompareView
+                                        }
                                 } catch let err {
                                         DispatchQueue.main.async {
                                                 self.errorInfo = err.localizedDescription
                                         }
                                 }
                         }
-                        
-                        DispatchQueue.main.async {
-                                self.processingTime = executionTime
-                                self.isProcessing = false
-                                self.showCompareView = true // 设置为true以显示CompareView
-                        }
                 }
-        }
-}
-
-struct VideoPickerView: View {
-        @ObservedObject var videoController: VideoAlignment
-        @State private var showVideoPicker = false
-        
-        var body: some View {
-                VStack {
-                        if let videoUrl = videoController.videoURL {
-                                VideoPlayer(player: AVPlayer(url: videoUrl))
-                                        .frame(height: 400)
-                                        .background(Color.black)
-                                Button(action: {
-                                        videoController.removeVideo()
-                                }) {
-                                        Image(systemName: "trash")
-                                                .foregroundColor(.red)
-                                                .padding()
-                                                .background(Color.white)
-                                                .cornerRadius(20)
-                                }
-                                if let info = videoController.videoInfo {
-                                        Text(info)
-                                }
-                        } else {
-                                Button(action: {
-                                        showVideoPicker = true
-                                }) {
-                                        Image(systemName: "plus")
-                                                .font(.largeTitle)
-                                                .padding()
-                                                .frame(height: 200)
-                                                .frame(maxWidth: .infinity)
-                                                .background(Color.gray.opacity(0.3))
-                                                .cornerRadius(10)
-                                }
-                        }
-                }
-                .sheet(isPresented: $showVideoPicker) {
-                        PHPickerViewController.View(videoPicked: { url in
-                                showVideoPicker = false
-                                videoController.prepareVideoInBackground(url: url)
-                        })
-                }
-        }
-}
-
-
-struct CompareView: View {
-        @ObservedObject var videoCtlA: VideoAlignment
-        @ObservedObject var videoCtlB: VideoAlignment
-        var processingTime: Double?
-        var comparedUrl: URL?
-        
-        var body: some View {
-                VStack(spacing: 20) {
-                        if let time = processingTime {
-                                Text("处理时间: \(time, specifier: "%.2f") 秒")
-                                        .padding(.top, 20) // Adjust top padding
-                        }
-                        
-                        if let urlA = videoCtlA.cipheredVideoUrl, let urlB = videoCtlB.cipheredVideoUrl {
-                                HStack(spacing: 20) {
-                                        VideoPlayer(player: AVPlayer(url: urlA))
-                                                .frame(height: 200)
-                                                .background(Color.black)
-                                        
-                                        VideoPlayer(player: AVPlayer(url: urlB))
-                                                .frame(height: 200)
-                                                .background(Color.black)
-                                }
-                                
-                                Button(action: {
-                                        compareVideo()
-                                }) {
-                                        Text("对比视频")
-                                                .frame(width: 160, height: 80) // Adjust button size
-                                                .background(Color.gray)
-                                                .foregroundColor(.white)
-                                                .cornerRadius(10)
-                                }
-                                .padding(.top, 20) // Adjust top padding
-                                
-                                if let comparedUrl = comparedUrl {
-                                        VideoPlayer(player: AVPlayer(url: comparedUrl))
-                                                .frame(height: 200)
-                                                .background(Color.black)
-                                }
-                        }
-                }
-                .padding(20) // Add padding around the entire content
-                .background(Color.white) // Add a white background
-                .cornerRadius(10) // Apply corner radius to the entire view
-                .shadow(radius: 5) // Add shadow for better visibility
-        }
-        
-        func compareVideo() {
-                // Implement video comparison logic here
-                // For example, set comparedUrl to the comparison result URL
-                // You would need to implement the logic based on your requirements
         }
 }

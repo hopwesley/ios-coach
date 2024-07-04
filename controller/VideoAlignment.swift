@@ -189,6 +189,7 @@ class VideoAlignment: ObservableObject {
 #endif
                 }
                 print("frame sum gradient size:", frameCount)
+                reader.cancelReading()
                 return (allFrameSumGradient, frameCount)
         }
         
@@ -447,7 +448,7 @@ class VideoAlignment: ObservableObject {
                                         case .completed:
                                                 DispatchQueue.main.async {
                                                         self.cipheredVideoUrl = outputURL
-                                                        print("Video trimmed successfully")
+                                                        print("Video trimmed successfully",outputURL.absoluteString)
                                                 }
                                                 continuation.resume()
                                         case .failed:
