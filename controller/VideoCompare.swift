@@ -11,9 +11,15 @@ import CoreImage
 
 class VideoCompare: ObservableObject {
         @Published var processingMessage: String = "开始处理..."
+        
         var videoWidth:Int = 0
         var videoHeight:Int = 0
         var pixelSize:Int = 0
+        var numBlocksX:Int = 0
+        var numBlocks:Int = 0
+        var numBlocksY:Int = 0
+        var sideOfBlock:Int = 0
+        
         var textureDescriptor:MTLTextureDescriptor!
         var assetA:AVAsset!
         var assetB:AVAsset!
@@ -25,13 +31,28 @@ class VideoCompare: ObservableObject {
         var spaceGradientPipe: MTLComputePipelineState!
         var blockHistogramPipe: MTLComputePipelineState!
         
+        var grayBufferPre:MTLBuffer?
+        var grayBufferCur:MTLBuffer?
+        var gradientBufferX:MTLBuffer?
+        var gradientBufferY:MTLBuffer?
+        var gradientBufferT:MTLBuffer?
+        var avgGradientOfBlock:MTLBuffer?
+        
+        var pixelThreadGrpNo:MTLSize?
+        var pixelThreadGrpSize:MTLSize = MTLSize(width: PixelThreadWidth,
+                                                 height: PixelThreadHeight,
+                                                 depth: 1)
+        var blockThreadGrpSize:MTLSize?
+        var blockThreadGrpNo:MTLSize?
+        
         func CompareAction(videoA:URL,videoB:URL)async throws{
                 self.assetA = AVAsset(url: videoA)
                 self.assetB = AVAsset(url: videoB)
                 
                 logProcessInfo("初始化GPU")
                 try initGpuDevice()
-                try await self.prepareParametersFromeOneVideo()
+                try await self.prepareVideoParam()
+                try  self.prepareFrameBuffer();
                 try await  self.processVideo()
         }
         
@@ -59,7 +80,7 @@ class VideoCompare: ObservableObject {
                 blockHistogramPipe = try device.makeComputePipelineState(function: quantizeGradientFun)
         }
         
-        private func prepareParametersFromeOneVideo() async throws{
+        private func prepareVideoParam() async throws{
                 guard let videoTrack = try await self.assetA.loadTracks(withMediaType: .video).first else {
                         throw ASError.noValidVideoTrack
                 }
@@ -78,18 +99,121 @@ class VideoCompare: ObservableObject {
                 textureDescriptor.usage = [.shaderRead, .shaderWrite]
         }
         
-        private func prepareDeviceBuffer(){
+        private func prepareFrameBuffer() throws{
                 
+                guard let bufferA = device.makeBuffer(length: self.pixelSize * MemoryLayout<UInt8>.stride, options: .storageModeShared),
+                      let bufferB = device.makeBuffer(length: self.pixelSize * MemoryLayout<UInt8>.stride, options: .storageModeShared),
+                      let bufferT = device.makeBuffer(length: self.pixelSize * MemoryLayout<UInt8>.stride, options: .storageModeShared),
+                      let bufferX = device.makeBuffer(length: self.pixelSize * MemoryLayout<Int16>.stride, options: .storageModeShared),
+                      let bufferY = device.makeBuffer(length: self.pixelSize * MemoryLayout<Int16>.stride, options: .storageModeShared) else{
+                        throw ASError.gpuBufferErr
+                }
+                
+                self.grayBufferPre = bufferA
+                self.grayBufferCur = bufferB
+                self.gradientBufferT = bufferT
+                self.gradientBufferX = bufferX
+                self.gradientBufferY = bufferY
+                
+                pixelThreadGrpNo = MTLSize(width: (self.videoWidth + PixelThreadWidth - 1) / PixelThreadWidth,
+                                           height: (self.videoHeight + PixelThreadHeight - 1) / PixelThreadHeight,
+                                           depth: 1)
+        }
+        
+        private func prepareBlockBuffer(sideOfDesc:Int) throws{
+                
+                let blockSideOneDesc = DescriptorParam_M * DescriptorParam_m
+                let blockSize = sideOfDesc / blockSideOneDesc
+                self.numBlocksX = (self.videoWidth + blockSize - 1) / blockSize
+                let numBlocksY = (self.videoHeight + blockSize - 1) / blockSize
+                self.numBlocks = self.numBlocksX * numBlocksY
+                self.sideOfBlock = blockSize
+                let histogramLen = numBlocks * HistogramSize * MemoryLayout<Float>.stride
+                
+                guard let avgGradientAllBlock = device.makeBuffer(length: histogramLen, options: .storageModeShared) else{
+                        throw ASError.gpuBufferErr
+                }
+                self.avgGradientOfBlock = avgGradientAllBlock
+                blockThreadGrpSize =  MTLSize(width: blockSideOneDesc,
+                                              height: blockSideOneDesc,
+                                              depth: 1)
+                blockThreadGrpNo = MTLSize(
+                        width: (numBlocksX + blockSideOneDesc - 1) / blockSideOneDesc,
+                        height: (numBlocksY + blockSideOneDesc - 1) / blockSideOneDesc,
+                        depth: 1
+                )
+        }
+        
+        private func resetBuffer(){
+                memset(grayBufferPre?.contents(), 0, self.pixelSize * MemoryLayout<UInt8>.stride)
+                memset(grayBufferCur?.contents(), 0, self.pixelSize * MemoryLayout<UInt8>.stride)
+                memset(gradientBufferT?.contents(), 0, self.pixelSize * MemoryLayout<UInt8>.stride)
+                memset(gradientBufferX?.contents(), 0, self.pixelSize * MemoryLayout<Int16>.stride)
+                memset(gradientBufferY?.contents(), 0, self.pixelSize * MemoryLayout<Int16>.stride)
+                memset(avgGradientOfBlock?.contents(), 0, numBlocks * HistogramSize * MemoryLayout<Float>.stride)
         }
         
         private func processVideo() async throws{
                 var counter = 0;
+                
+                var preFrameA:MTLTexture? = nil
+                var preFrameB:MTLTexture? = nil
+                
                 try await iterateVideoFrame(){frameA, frameB in
+                        
                         counter+=1
                         self.logProcessInfo("处理第\(counter)帧")
+                        if preFrameA == nil{
+                                preFrameA = frameA
+                                preFrameB = frameB
+                                return
+                        }
+                        
+                        self.resetBuffer()
+                        
+                        try self.prepareFrame(preFrame: preFrameA!, curFrame: frameA)
+                        try self.prepareFrame(preFrame: preFrameB!, curFrame: frameB)
+                        
                 }
         }
         
+        func prepareFrame(preFrame:MTLTexture, curFrame:MTLTexture) throws{
+                
+                guard let commandBuffer = commandQueue.makeCommandBuffer(),
+                      let grayCoder = commandBuffer.makeComputeCommandEncoder()else{
+                        throw ASError.gpuEncoderErr
+                }
+                
+                grayCoder.setComputePipelineState(self.grayAndDiffPipe)
+                grayCoder.setTexture(preFrame, index: 0)
+                grayCoder.setTexture(curFrame, index: 1)
+                grayCoder.setBuffer(grayBufferPre, offset: 0, index: 0)
+                grayCoder.setBuffer(grayBufferCur, offset: 0, index: 1)
+                grayCoder.setBuffer(gradientBufferT, offset: 0, index: 2)
+                grayCoder.dispatchThreadgroups(pixelThreadGrpNo!,
+                                           threadsPerThreadgroup: pixelThreadGrpSize)
+                grayCoder.endEncoding()
+                
+                guard let gradeintCoder = commandBuffer.makeComputeCommandEncoder() else{
+                        throw ASError.gpuEncoderErr
+                }
+                
+                gradeintCoder.setComputePipelineState(spaceGradientPipe)
+                gradeintCoder.setBuffer(grayBufferCur, offset: 0, index: 0)
+                gradeintCoder.setBuffer(gradientBufferX, offset: 0, index: 1)
+                gradeintCoder.setBuffer(gradientBufferY, offset: 0, index: 2)
+                var w = self.videoWidth
+                var h = self.videoHeight
+                gradeintCoder.setBytes(&w, length: MemoryLayout<Int>.size, index: 3)
+                gradeintCoder.setBytes(&h, length: MemoryLayout<Int>.size, index: 4)
+                
+                gradeintCoder.dispatchThreadgroups(pixelThreadGrpNo!,
+                                           threadsPerThreadgroup: pixelThreadGrpSize)
+                gradeintCoder.endEncoding()
+                
+                commandBuffer.commit()
+                commandBuffer.waitUntilCompleted()
+        }
 }
 
 
@@ -112,11 +236,11 @@ extension  VideoCompare{
                 return inputTexture
         }
         
-        private func iterateVideoFrame(callBack: ((MTLTexture,MTLTexture) -> Void)?) async throws{
+        private func iterateVideoFrame(callBack: ((MTLTexture,MTLTexture)throws -> Void)?) async throws{
                 let readerA = try AVAssetReader(asset: self.assetA)
                 let readerB = try AVAssetReader(asset: self.assetA)
                 guard let videoTrackA = try await self.assetA.loadTracks(withMediaType: .video).first,
-                let videoTrackB = try await self.assetB.loadTracks(withMediaType: .video).first else {
+                      let videoTrackB = try await self.assetB.loadTracks(withMediaType: .video).first else {
                         throw ASError.noValidVideoTrack
                 }
                 
@@ -138,7 +262,7 @@ extension  VideoCompare{
                                 throw ASError.readVideoDataFailed
                         }
                         if let callBack = callBack {
-                                callBack(frameA,frameB)
+                                try callBack(frameA,frameB)
                         }
                 }
                 readerA.cancelReading()
