@@ -14,6 +14,7 @@ let SideSizeOfLevelZero = 32
 let PixelThreadWidth = 8
 let PixelThreadHeight = 8
 let HistogramSize = 10
+let DescriptorSize = DescriptorParam_M * DescriptorParam_M * HistogramSize
 let ThreadSizeForParallelSum = 32
 
 let phi = Float((1.0 + sqrt(5.0)) / 2.0)

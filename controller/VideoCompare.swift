@@ -19,8 +19,8 @@ class VideoCompare: ObservableObject {
         var numBlockNo:[Int] = [0,0,0]
         var numBlocksY:[Int] = [0,0,0]
         var blockSizeInPixel:[Int] = [0,0,0]
-        var descriptorRows:[Int] = [0,0,0]
-        var descriptorCols:[Int] = [0,0,0]
+        var descriptorNumY:[Int] = [0,0,0]
+        var descriptorNumX:[Int] = [0,0,0]
         var descriptorNo:[Int] = [0,0,0]
         
         var textureDescriptor:MTLTextureDescriptor!
@@ -174,21 +174,21 @@ class VideoCompare: ObservableObject {
                 self.blockSizeInPixel[level] = blockSize
                 
                 blockThreadGrpSize[level] =  MTLSize(width: blockNoInOneDesc,
-                                              height: blockNoInOneDesc,
-                                              depth: 1)
+                                                     height: blockNoInOneDesc,
+                                                     depth: 1)
                 blockThreadGrpNo[level] = MTLSize(
                         width: (numBlocksX[level] + blockNoInOneDesc - 1) / blockNoInOneDesc,
                         height: (numBlocksY[level] + blockNoInOneDesc - 1) / blockNoInOneDesc,
                         depth: 1
                 )
                 
-                self.descriptorRows[level] =  self.numBlocksY [level] - blockNoInOneDesc + 1
-                self.descriptorCols[level] = self.numBlocksX[level]  - blockNoInOneDesc + 1
-                self.descriptorNo[level] = self.descriptorRows[level]  * self.descriptorCols[level]  * DescriptorParam_M * DescriptorParam_M * HistogramSize
+                self.descriptorNumY[level] =  self.numBlocksY [level] - blockNoInOneDesc + 1
+                self.descriptorNumX[level] = self.numBlocksX[level]  - blockNoInOneDesc + 1
+                self.descriptorNo[level] = self.descriptorNumY[level]  * self.descriptorNumX[level]  * DescriptorSize
                 
                 self.descriptorThreadGrpNo[level] = MTLSize(
-                        width: (self.descriptorCols[level]  + 7) / 8,
-                        height: (self.descriptorRows[level]  + 7) / 8,
+                        width: (self.descriptorNumX[level]  + 7) / 8,
+                        height: (self.descriptorNumY[level]  + 7) / 8,
                         depth: 1
                 )
                 guard let avgGradientAllBlockA = device.makeBuffer(length: numBlockNo[level]  * MemoryLayout<Float>.stride, options: .storageModeShared),
@@ -220,7 +220,7 @@ class VideoCompare: ObservableObject {
                 memset(gradientBufferTB?.contents(), 0, self.pixelSize * MemoryLayout<UInt8>.stride)
                 memset(gradientBufferXB?.contents(), 0, self.pixelSize * MemoryLayout<Int16>.stride)
                 memset(gradientBufferYB?.contents(), 0, self.pixelSize * MemoryLayout<Int16>.stride)
-        
+                
                 for i in 0..<3{
                         memset(avgGradientOfBlockA[i]?.contents(), 0, numBlockNo[i]   * MemoryLayout<Float>.stride)
                         memset(avgGradientOfBlockB[i]?.contents(), 0, numBlockNo[i]   * MemoryLayout<Float>.stride)
@@ -356,10 +356,17 @@ class VideoCompare: ObservableObject {
                 
                 coder.setComputePipelineState(self.descriptorPipe)
                 
-                coder.setBuffer(avgGradientOfBlockA[level], offset: 0, index: 1)
-                coder.setBuffer(avgGradientOfBlockB[level], offset: 0, index: 2)
-                coder.setBytes(&(self.descriptorCols[level]), length: MemoryLayout<Int>.size, index: 3)
-                coder.setBytes(&(self.descriptorRows[level]), length: MemoryLayout<Int>.size, index: 4)
+                coder.setBuffer(avgGradientOfBlockA[level], offset: 0, index: 0)
+                coder.setBuffer(avgGradientOfBlockB[level], offset: 0, index: 1)
+                
+                coder.setBuffer(descriptorBufferA[level], offset: 0, index: 2)
+                coder.setBuffer(descriptorBufferB[level], offset: 0, index: 3)
+                
+                coder.setBytes(&(self.descriptorNumX[level]), length: MemoryLayout<Int>.size, index: 4)
+                coder.setBytes(&(self.descriptorNumY[level]), length: MemoryLayout<Int>.size, index: 5)
+                var levelVar = level
+                coder.setBytes(&levelVar, length: MemoryLayout<Int>.size, index: 6)
+                coder.setBytes(&(numBlocksX[level]), length: MemoryLayout<Int>.size, index: 7)
                 
                 coder.dispatchThreadgroups(descriptorThreadGrpNo[level]!,
                                            threadsPerThreadgroup: descriptorThreadGrpSize)
@@ -444,6 +451,17 @@ extension  VideoCompare{
                                                    buffer: self.avgGradientOfBlockB[i]!,
                                                    width: self.numBlocksX[i], height: self.numBlocksY[i],
                                                    depth: HistogramSize, type: Float.self)
+                        
+                        
+                        saveRawDataToFileWithDepth(fileName: "gpu_descriptor_\(counter)_a_level_\(i).json",
+                                                   buffer: self.descriptorBufferA[i]!,
+                                                   width: self.descriptorNumX[i], height: self.descriptorNumY[i],
+                                                   depth: DescriptorSize, type: Float.self)
+                        
+                        saveRawDataToFileWithDepth(fileName: "gpu_descriptor_\(counter)_b_level_\(i).json",
+                                                   buffer: self.descriptorBufferB[i]!,
+                                                   width: self.descriptorNumX[i], height: self.descriptorNumX[i],
+                                                   depth: DescriptorSize, type: Float.self)
                 }
 #endif
         }

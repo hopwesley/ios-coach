@@ -22,6 +22,8 @@ constant int8_t sobelY[9] = {-1, -2, -1,
         1,  2,  1};
 
 constant int blockNumOneDescriptor = Cell_M * Cell_m;
+constant int HistogramSize = 10;
+constant int DescriptorSize = Cell_M*Cell_M*HistogramSize;
 
 constant float weightsWithDistance[3][blockNumOneDescriptor][blockNumOneDescriptor] = {
         {
@@ -55,9 +57,6 @@ constant float weightsWithDistance[3][blockNumOneDescriptor][blockNumOneDescript
         {7.616241169186581e-7, 0.00001529762932195991, 0.00011303504124060822, 0.0003072610985834641, 0.0003072610985834641, 0.00011303504124060822, 0.00001529762932195991, 7.616241169186581e-7}
         }
 };
-
-
-constant int HistogramSize = 10;
 
 inline void  grayAndTimeDiff(texture2d<float, access::read> preTexture ,
                              texture2d<float, access::read> texture ,
@@ -247,16 +246,68 @@ kernel void quantizeAvgerageGradientOfTwoBlock(
         avgBlockGradient(gradientXB,gradientYB,gradientTB,avgGradientOneFrameB,normalizedP,width, height,blockSize,numBlocksX,gid);
 }
 
+inline void normalizeArray(thread float* array, uint size) {
+        // 计算L2范数
+        float l2Norm = 0.0f;
+        for (uint i = 0; i < size; i++) {
+                l2Norm += array[i] * array[i];
+        }
+        l2Norm = sqrt(l2Norm) + 1.0f; // 加1以避免除以0的情况
+        
+        // 归一化数组
+        for (uint i = 0; i < size; i++) {
+                array[i] /= l2Norm;
+        }
+}
 
-kernel void normalizedDescriptor(device float* avgGradientOneFrameA [[buffer(1)]],
-                                 device float* avgGradientOneFrameB [[buffer(2)]],
-                                 constant uint &width [[buffer(3)]],
-                                 constant uint &height [[buffer(4)]],
+
+kernel void normalizedDescriptor(device float* avgGradientOneFrameA [[buffer(0)]],
+                                 device float* avgGradientOneFrameB [[buffer(1)]],
+                                 device float* descriptorBufferA [[buffer(2)]],
+                                 device float* descriptorBufferB [[buffer(3)]],
+                                 constant uint &descWidth [[buffer(4)]],
+                                 constant uint &descHeight [[buffer(5)]],
+                                 constant uint &level [[buffer(6)]],
+                                 constant uint &numBlocksX [[buffer(7)]],
                                  uint2 gid [[thread_position_in_grid]])
 {
-        if (gid.x >=  width|| gid.y >= height) {
+        if (gid.x >=  descWidth|| gid.y >= descHeight) {
                 return;
         }
         
+        float descriptDataA[DescriptorSize] = {0.0f};
+        float descriptDataB[DescriptorSize] = {0.0f};
         
+        for (int wRowIdx = 0; wRowIdx < blockNumOneDescriptor; ++wRowIdx) {
+                
+                uint gradientBlockRowStartIdx = (gid.y+wRowIdx) * numBlocksX + gid.x;
+                
+                for (int wColIdx = 0; wColIdx < blockNumOneDescriptor; ++wColIdx) {
+                        
+                        float weight = weightsWithDistance[level][wRowIdx][wColIdx];
+                        
+                        uint gradientIdx = gradientBlockRowStartIdx + wColIdx;
+                        
+                        int cellIdxInDescriptor = (wRowIdx/Cell_m)*Cell_M + wColIdx/Cell_m;
+                        
+                        for (int histogramIdx = 0; histogramIdx < HistogramSize; ++histogramIdx){
+                                
+                                descriptDataA[cellIdxInDescriptor*HistogramSize + histogramIdx] += avgGradientOneFrameA[gradientIdx * HistogramSize + histogramIdx] * weight;
+                                
+                                descriptDataB[cellIdxInDescriptor*HistogramSize + histogramIdx] += avgGradientOneFrameB[gradientIdx  * HistogramSize + histogramIdx] * weight;
+                        }
+                }
+        }
+        
+        
+        normalizeArray(descriptDataA, DescriptorSize);
+        normalizeArray(descriptDataB, DescriptorSize);
+        
+        uint descriptorIdx = gid.y * descWidth + gid.x;
+        
+        for (uint i = 0; i < DescriptorSize; i++) {
+                
+                descriptorBufferA[descriptorIdx * DescriptorSize+ i] = descriptDataA[i];
+                descriptorBufferB[descriptorIdx * DescriptorSize + i] = descriptDataB[i];
+        }
 }
