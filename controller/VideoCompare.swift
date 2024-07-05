@@ -19,6 +19,8 @@ class VideoCompare: ObservableObject {
         var numBlocks:Int = 0
         var numBlocksY:Int = 0
         var blockSizeInPixel:Int = 0
+        var descriptorRows:Int = 0
+        var descriptorCols:Int = 0
         
         var textureDescriptor:MTLTextureDescriptor!
         var assetA:AVAsset!
@@ -147,8 +149,8 @@ class VideoCompare: ObservableObject {
         
         private func prepareBlockBuffer(sideOfDesc:Int) throws{
                 
-                let blockSideOneDesc = DescriptorParam_M * DescriptorParam_m
-                let blockSize = sideOfDesc / blockSideOneDesc
+                let blockNoInOneDesc = DescriptorParam_M * DescriptorParam_m
+                let blockSize = sideOfDesc / blockNoInOneDesc
                 self.numBlocksX = (self.videoWidth + blockSize - 1) / blockSize
                 self.numBlocksY = (self.videoHeight + blockSize - 1) / blockSize
                 self.numBlocks = self.numBlocksX * numBlocksY
@@ -162,12 +164,12 @@ class VideoCompare: ObservableObject {
                 self.avgGradientOfBlockA = avgGradientAllBlockA
                 self.avgGradientOfBlockB = avgGradientAllBlockB
                 
-                blockThreadGrpSize =  MTLSize(width: blockSideOneDesc,
-                                              height: blockSideOneDesc,
+                blockThreadGrpSize =  MTLSize(width: blockNoInOneDesc,
+                                              height: blockNoInOneDesc,
                                               depth: 1)
                 blockThreadGrpNo = MTLSize(
-                        width: (numBlocksX + blockSideOneDesc - 1) / blockSideOneDesc,
-                        height: (numBlocksY + blockSideOneDesc - 1) / blockSideOneDesc,
+                        width: (numBlocksX + blockNoInOneDesc - 1) / blockNoInOneDesc,
+                        height: (numBlocksY + blockNoInOneDesc - 1) / blockNoInOneDesc,
                         depth: 1
                 )
         }
