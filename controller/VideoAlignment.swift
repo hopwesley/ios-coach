@@ -372,7 +372,6 @@ class VideoAlignment: ObservableObject {
                 saveRawDataToFile(fileName: "gpu_gradientYBuffer_\(counter).json", buffer: gradientBufferY!, width: w, height: h, type: Int16.self)
                 saveRawDataToFile(fileName: "gpu_gradientTBuffer_\(counter).json", buffer: gradientBufferT!, width: w, height: h, type: UInt8.self)
                 
-                let numBlocksX = (self.videoWidth + self.sideOfBlock - 1) / self.sideOfBlock
                 let numBlocksY = (self.videoHeight + self.sideOfBlock - 1) / self.sideOfBlock
                 saveRawDataToFileWithDepth(fileName: "gpu_frame_quantity_\(self.sideOfBlock)_\(counter).json", buffer: avgGradientOfBlock!,
                                            width: numBlocksX, height: numBlocksY, depth: HistogramSize, type: Float.self)

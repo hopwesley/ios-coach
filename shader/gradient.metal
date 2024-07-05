@@ -143,5 +143,5 @@ kernel void quantizeAvgerageGradientOfBlock(
         if (count > 0) sumGradient /= float(count);
         
         uint avgIndex = gid.y * numBlocksX + gid.x;
-        quantizeGradient(sumGradient,normalizedP,avgGradientOneFrame, avgIndex);
+        quantizeGradient(sumGradient, normalizedP, avgGradientOneFrame, avgIndex);
 }
