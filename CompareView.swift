@@ -1,11 +1,3 @@
-//
-//  CompareView.swift
-//  SportsCoach
-//
-//  Created by wesley on 2024/7/4.
-//
-
-
 import SwiftUI
 import AVKit
 import AVFoundation
@@ -16,16 +8,17 @@ struct CompareView: View {
         @State var urlB: URL?
         @StateObject private var compareror = VideoCompare()
         @State private var isProcessing = false
-        var processingTime: Double?
+        var alignTime: Double?
         var comparedUrl: URL?
+        @State var compareTime: Double? = nil
         
         var body: some View {
                 ZStack {
                         ScrollView {
                                 VStack(spacing: 20) {
-                                        if let time = processingTime {
-                                                Text("处理时间: \(time, specifier: "%.2f") 秒")
-                                                        .padding(.top, 20) // Adjust top padding
+                                        if let time = alignTime {
+                                                Text("对齐时间: \(time, specifier: "%.2f") 秒")
+                                                        .padding(.top, 20)
                                         }
                                         
                                         if let urlA = urlA, let urlB = urlB {
@@ -48,13 +41,16 @@ struct CompareView: View {
                                                                 .foregroundColor(.white)
                                                                 .cornerRadius(10)
                                                 }
-                                                .padding(.top, 20) // Adjust top padding
-                                                
-                                                if let comparedUrl = comparedUrl {
-                                                        VideoPlayer(player: AVPlayer(url: comparedUrl))
-                                                                .frame(height: 200)
-                                                                .background(Color.black)
-                                                }
+                                                .padding(.top, 20)
+                                        }
+                                        
+                                        if let cTime = compareTime {
+                                                Text("对比时间: \(cTime, specifier: "%.2f") 秒")
+                                        }
+                                        if let comparedUrl = comparedUrl {
+                                                VideoPlayer(player: AVPlayer(url: comparedUrl))
+                                                        .frame(height: 200)
+                                                        .background(Color.black)
                                         }
                                 }
                                 .padding(20) // Add padding around the entire content
@@ -84,14 +80,19 @@ struct CompareView: View {
                         print("video invalid!")
                         return
                 }
+                let startTime = Date()
+                
                 DispatchQueue.main.async {
                         self.isProcessing = true
                 }
                 Task {
                         do {
                                 try await compareror.CompareAction(videoA: aUrl, videoB: bUrl)
+                                let endTime = Date()
+                                let executionTime = endTime.timeIntervalSince(startTime)
                                 DispatchQueue.main.async {
                                         self.isProcessing = false
+                                        self.compareTime = executionTime
                                         // self.comparedUrl = // Set this to the result of CompareAction
                                 }
                         } catch {

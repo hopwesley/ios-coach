@@ -125,7 +125,8 @@ kernel void quantizeAvgerageGradientOfBlock(
                                             constant uint &height [[buffer(6)]],
                                             constant uint &blockSize [[buffer(7)]],
                                             constant uint &numBlocksX [[buffer(8)]],
-                                            uint2 gid [[thread_position_in_grid]])
+                                            uint2 gid [[thread_position_in_grid]],
+                                            uint2 tid [[thread_position_in_threadgroup]])
 {
         uint blockStartX = gid.x * blockSize;
         uint blockStartY = gid.y * blockSize;

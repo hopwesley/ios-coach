@@ -46,13 +46,24 @@ struct ContentView: View {
                                                 }
                                         }
                                         
-                                        Button(action: {
-                                                processingTimeAlign(maxFrame: Int(sliderValue))
-                                        }) {
-                                                Text("对齐")
+                                        HStack{
+                                                
+                                                Button(action: {
+                                                        processingTimeAlign(maxFrame: Int(sliderValue))
+                                                }) {
+                                                        Text("自动对齐")
+                                                }
+                                                .frame(width: 160, height: 80)
+                                                .background(Color.gray)
+                                                
+                                                Button(action: {
+                                                        
+                                                }) {
+                                                        Text("手动对齐")
+                                                }
+                                                .frame(width: 160, height: 80)
+                                                .background(Color.gray)
                                         }
-                                        .frame(width: 160, height: 80)
-                                        .background(Color.gray)
                                 }
                                 .allowsHitTesting(!isProcessing)
                                 
@@ -68,7 +79,7 @@ struct ContentView: View {
                                         .background(Color.black.opacity(0.5).edgesIgnoringSafeArea(.all))
                                 }
                         }.navigationDestination(isPresented: $showCompareView) {
-                                CompareView(urlA: videoCtlA.cipheredVideoUrl, urlB: videoCtlB.cipheredVideoUrl, processingTime: processingTime)
+                                CompareView(urlA: videoCtlA.cipheredVideoUrl, urlB: videoCtlB.cipheredVideoUrl, alignTime: processingTime)
                         }
                 }
         }
@@ -131,10 +142,10 @@ struct ContentView: View {
                                         
                                         try await resultA
                                         try await resultB
-                                        DispatchQueue.main.async {
+                                        DispatchQueue.main.async {// 设置为true以显示CompareView
                                                 self.processingTime = executionTime
                                                 self.isProcessing = false
-                                                self.showCompareView = true // 设置为true以显示CompareView
+                                                self.showCompareView = true 
                                         }
                                 } catch let err {
                                         DispatchQueue.main.async {

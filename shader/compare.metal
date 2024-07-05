@@ -246,3 +246,17 @@ kernel void quantizeAvgerageGradientOfTwoBlock(
         
         avgBlockGradient(gradientXB,gradientYB,gradientTB,avgGradientOneFrameB,normalizedP,width, height,blockSize,numBlocksX,gid);
 }
+
+
+kernel void normalizedDescriptor(device float* avgGradientOneFrameA [[buffer(1)]],
+                                 device float* avgGradientOneFrameB [[buffer(2)]],
+                                 constant uint &width [[buffer(3)]],
+                                 constant uint &height [[buffer(4)]],
+                                 uint2 gid [[thread_position_in_grid]])
+{
+        if (gid.x >=  width|| gid.y >= height) {
+                return;
+        }
+        
+        
+}
