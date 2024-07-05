@@ -206,31 +206,36 @@ class VideoCompare: ObservableObject {
                         }
                         
                         self.resetBuffer()
-                        
-                        guard let commandBuffer = self.commandQueue.makeCommandBuffer() else{
-                                throw  ASError.gpuBufferErr
+                        for i in 0..<3{
+                                
+                                guard let commandBuffer = self.commandQueue.makeCommandBuffer() else{
+                                        throw  ASError.gpuBufferErr
+                                }
+                                
+                                try self.prepareBlockBuffer(sideOfDesc: SideSizeOfLevelZero << i)
+                                
+                                try self.pixelGradient(preFrame: preFrameA!, curFrame: frameA,
+                                                       preFrameB: preFrameB!, curFrameB: frameB,
+                                                       commandBuffer: commandBuffer)
+                                
+                                try self.avgBlockGradient(commandBuffer: commandBuffer)
+                                commandBuffer.commit()
+                                commandBuffer.waitUntilCompleted()
+                                
+                                
+#if DEBUG
+                                saveRawDataToFileWithDepth(fileName: "gpu_average_block_\(self.blockSizeInPixel)_\(counter)_a_level_\(i).json",
+                                                           buffer: self.avgGradientOfBlockA!,
+                                                           width: self.numBlocksX, height: self.numBlocksY,
+                                                           depth: HistogramSize, type: Float.self)
+                                
+                                saveRawDataToFileWithDepth(fileName: "gpu_average_block_\(self.blockSizeInPixel)_\(counter)_b_level_\(i).json",
+                                                           buffer: self.avgGradientOfBlockB!,
+                                                           width: self.numBlocksX, height: self.numBlocksY,
+                                                           depth: HistogramSize, type: Float.self)
+#endif
                         }
                         
-                        try self.prepareBlockBuffer(sideOfDesc: 32)
-                        try self.pixelGradient(preFrame: preFrameA!, curFrame: frameA,
-                                               preFrameB: preFrameB!, curFrameB: frameB,
-                                               commandBuffer: commandBuffer)
-                        
-                        try self.avgBlockGradient(commandBuffer: commandBuffer)
-                        
-                        commandBuffer.commit()
-                        commandBuffer.waitUntilCompleted()
-#if DEBUG
-                        saveRawDataToFileWithDepth(fileName: "gpu_average_block_\(self.blockSizeInPixel)_\(counter)_a.json",
-                                                   buffer: self.avgGradientOfBlockA!,
-                                                   width: self.numBlocksX, height: self.numBlocksY,
-                                                   depth: HistogramSize, type: Float.self)
-                        
-                        saveRawDataToFileWithDepth(fileName: "gpu_average_block_\(self.blockSizeInPixel)_\(counter)_b.json",
-                                                   buffer: self.avgGradientOfBlockB!,
-                                                   width: self.numBlocksX, height: self.numBlocksY,
-                                                   depth: HistogramSize, type: Float.self)
-#endif
                         return false;
                         //                        return true;
                 }
