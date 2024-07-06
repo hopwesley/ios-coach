@@ -379,15 +379,16 @@ kernel void applyBiLinearInterpolationToFullFrame(device const float* wtl [[buff
                                                   device float* fullMap [[buffer(1)]],
                                                   constant uint &width [[buffer(2)]],
                                                   constant uint &height [[buffer(3)]],
-                                                  constant uint &S_0 [[buffer(4)]],
+                                                  constant uint &descSize [[buffer(4)]],
+                                                  constant uint &level [[buffer(5)]],
                                                   uint2 gid [[thread_position_in_grid]]) {
         if (gid.x >= width || gid.y >= height) {
                 return;
         }
         
         
-        uint blockSize = S_0 / Cell_M / Cell_m;
-        uint shift = S_0 / 2;
+        uint blockSize = descSize / Cell_M / Cell_m;
+        uint shift = descSize / 2;
         
         uint j = gid.x / blockSize;
         uint i = gid.y / blockSize;
@@ -401,6 +402,11 @@ kernel void applyBiLinearInterpolationToFullFrame(device const float* wtl [[buff
         uint y1 = i * blockSize + shift;
         uint y2 = (i + 1) * blockSize + shift;
         
+        // 确保索引在有效范围内
+        if (x2 >= width || y2 >= height) {
+                return;
+        }
+        
         float x = gid.x;
         float y = gid.y;
         
@@ -413,14 +419,13 @@ kernel void applyBiLinearInterpolationToFullFrame(device const float* wtl [[buff
 }
 
 
-kernel void normalizeImage(
-                           device const float* wbi [[buffer(0)]],
-                           device float* normalizedWbi [[buffer(1)]],
-                           constant float &minVal [[buffer(2)]],
-                           constant float &maxVal [[buffer(3)]],
-                           constant uint &width [[buffer(4)]],
-                           constant uint &height [[buffer(5)]],
-                           uint2 gid [[thread_position_in_grid]])
+kernel void normalizeImageFromWtl(
+                                  device float* wbi [[buffer(0)]],
+                                  constant float &minVal [[buffer(1)]],
+                                  constant float &maxVal [[buffer(2)]],
+                                  constant uint &width [[buffer(3)]],
+                                  constant uint &height [[buffer(4)]],
+                                  uint2 gid [[thread_position_in_grid]])
 {
         
         if (gid.x >= width || gid.y >= height) {
@@ -429,5 +434,5 @@ kernel void normalizeImage(
         
         uint index = gid.y * width + gid.x;
         float val = wbi[index];
-        normalizedWbi[index] = (val - minVal) / (maxVal - minVal);
+        wbi[index] = (val - minVal) / (maxVal - minVal);
 }

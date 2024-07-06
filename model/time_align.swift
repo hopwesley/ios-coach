@@ -85,7 +85,7 @@ func findBestAlignOffset(histoA: MTLBuffer, countA: Int, histoB: MTLBuffer, coun
         
         
         
-#if DEBUG
+#if AlignJsonData
         saveRawDataToFile(fileName: "gpu_frame_histogram_A.json",
                           buffer: histoA, width: 10, height: countA, type: Float.self)
         saveRawDataToFile(fileName: "gpu_frame_histogram_B.json",

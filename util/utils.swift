@@ -168,10 +168,10 @@ func saveHistogramAsJSON(histogram: [MTLBuffer], fileName: String) {
         var histogramData = [[Float]]()
         
         for buffer in histogram {
-            let length = buffer.length / MemoryLayout<Float>.size
-            let pointer = buffer.contents().bindMemory(to: Float.self, capacity: length)
-            let array = Array(UnsafeBufferPointer(start: pointer, count: length))
-            histogramData.append(array)
+                let length = buffer.length / MemoryLayout<Float>.size
+                let pointer = buffer.contents().bindMemory(to: Float.self, capacity: length)
+                let array = Array(UnsafeBufferPointer(start: pointer, count: length))
+                histogramData.append(array)
         }
         guard let jsonData = try? JSONEncoder().encode(histogramData) else {
                 print("Error encoding gray buffer to JSON")
@@ -179,7 +179,7 @@ func saveHistogramAsJSON(histogram: [MTLBuffer], fileName: String) {
         }
         
         dataToTmpFile(fileName: fileName, jsonData: jsonData)
-    }
+}
 
 func dataToTmpFile(fileName:String, jsonData:Data){
         let tempDirectory = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
@@ -339,3 +339,25 @@ extension ASError: LocalizedError {
 }
 
 
+func findMinMax(buffer: MTLBuffer, length: Int) -> (minVal: Float, maxVal: Float) {
+        let data = buffer.contents().bindMemory(to: Float.self, capacity: length)
+        var minVal = data[0]
+        var maxVal = data[0]
+        
+        for i in 0..<length {
+                let val = data[i]
+                if val > maxVal {
+                        maxVal = val
+                }
+                if val < minVal {
+                        minVal = val
+                }
+        }
+        
+        // 确保 maxVal 不为 0，以避免除以 0 的情况
+        if maxVal == 0 {
+                maxVal = 1
+        }
+        
+        return (minVal, maxVal)
+}

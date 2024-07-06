@@ -34,6 +34,8 @@ class VideoCompare: ObservableObject {
         var spaceGradientPipe: MTLComputePipelineState!
         var averageBlockGradientPipe: MTLComputePipelineState!
         var wtlPipe: MTLComputePipelineState!
+        var biLinearPipe: MTLComputePipelineState!
+        var normlizePipe:MTLComputePipelineState!
         
         var grayBufferPreB:MTLBuffer?
         var grayBufferCurB:MTLBuffer?
@@ -56,8 +58,9 @@ class VideoCompare: ObservableObject {
         var gradientBufferTA:MTLBuffer?
         var avgGradientOfBlockA:[MTLBuffer?]=[]
         
+        var fullWtlBuffer:MTLBuffer?
         var wtlOfAllLevel:[MTLBuffer?]=[]
-        
+        var finalImgBuffer:MTLBuffer?
         var projectionBuf:MTLBuffer?
         
         var pixelThreadGrpNo:MTLSize?
@@ -97,10 +100,10 @@ class VideoCompare: ObservableObject {
                 guard let grayAndDiff = library.makeFunction(name: "grayAndTimeDiffTwoFrame"),
                       let spaceGradientFun = library.makeFunction(name: "spaceGradientTwoFrameTwoFrame"),
                       let quantizeGradientFun = library.makeFunction(name: "quantizeAvgerageGradientOfTwoBlock"),
-                      
-                        let descriptorFun = library.makeFunction(name: "normalizedDescriptor"),
-                      
-                        let wtlFun = library.makeFunction(name: "wtlBetweenTwoFrame") else{
+                      let descriptorFun = library.makeFunction(name: "normalizedDescriptor"),
+                      let wtlFun = library.makeFunction(name: "wtlBetweenTwoFrame"),
+                      let bilinearFun = library.makeFunction(name: "applyBiLinearInterpolationToFullFrame"),
+                      let normlizeFun  =  library.makeFunction(name: "normalizeImageFromWtl") else{
                         throw ASError.shaderLoadErr
                 }
                 
@@ -108,6 +111,8 @@ class VideoCompare: ObservableObject {
                 spaceGradientPipe = try device.makeComputePipelineState(function: spaceGradientFun)
                 averageBlockGradientPipe = try device.makeComputePipelineState(function: quantizeGradientFun)
                 wtlPipe = try device.makeComputePipelineState(function: wtlFun)
+                biLinearPipe = try device.makeComputePipelineState(function: bilinearFun)
+                normlizePipe = try device.makeComputePipelineState(function: normlizeFun)
                 
                 avgGradientOfBlockA = Array(repeating: nil, count: 3)
                 avgGradientOfBlockB = Array(repeating: nil, count: 3)
@@ -155,8 +160,9 @@ class VideoCompare: ObservableObject {
                       let bufferTB = device.makeBuffer(length: self.pixelSize * MemoryLayout<UInt8>.stride, options: .storageModeShared),
                       let bufferXB = device.makeBuffer(length: self.pixelSize * MemoryLayout<Int16>.stride, options: .storageModeShared),
                       let bufferYB = device.makeBuffer(length: self.pixelSize * MemoryLayout<Int16>.stride, options: .storageModeShared),
-                      let pBuffer = device.makeBuffer(bytes: normalizedP,
-                                                      length: MemoryLayout<SIMD3<Float>>.stride * normalizedP.count, options: .storageModeShared) else{
+                      let pBuffer = device.makeBuffer(bytes: normalizedP, length: MemoryLayout<SIMD3<Float>>.stride * normalizedP.count, options: .storageModeShared),
+                      let fwBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<Float>.stride, options: .storageModeShared),
+                      let finalBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<UInt8>.stride, options: .storageModeShared) else{
                         throw ASError.gpuBufferErr
                 }
                 
@@ -173,6 +179,8 @@ class VideoCompare: ObservableObject {
                 self.gradientBufferYB = bufferYB
                 
                 self.projectionBuf = pBuffer
+                self.fullWtlBuffer = fwBuffer
+                self.finalImgBuffer = finalBuffer
                 
                 pixelThreadGrpNo = MTLSize(width: (self.videoWidth + PixelThreadWidth - 1) / PixelThreadWidth,
                                            height: (self.videoHeight + PixelThreadHeight - 1) / PixelThreadHeight,
@@ -241,6 +249,10 @@ class VideoCompare: ObservableObject {
                 memset(gradientBufferXB?.contents(), 0, self.pixelSize * MemoryLayout<Int16>.stride)
                 memset(gradientBufferYB?.contents(), 0, self.pixelSize * MemoryLayout<Int16>.stride)
                 
+                
+                memset(fullWtlBuffer?.contents(), 0, self.pixelSize * MemoryLayout<Float>.stride)
+                memset(finalImgBuffer?.contents(), 0, self.pixelSize * MemoryLayout<UInt8>.stride)
+                
                 for i in 0..<3{
                         memset(avgGradientOfBlockA[i]?.contents(), 0, numBlockNo[i]   * MemoryLayout<Float>.stride)
                         memset(avgGradientOfBlockB[i]?.contents(), 0, numBlockNo[i]   * MemoryLayout<Float>.stride)
@@ -289,7 +301,11 @@ class VideoCompare: ObservableObject {
                                 try self.normalizedDescriptor(commandBuffer:commandBuffer, level: i)
 #endif
                                 try self.distanceOfDiscriptor(commandBuffer: commandBuffer, level: i)
+                                
+                                try self.biLinearInterpolate(commandBuffer: commandBuffer, level: i)
+                                
                         }
+//                        try self.normalizeFullWtl(commandBuffer: commandBuffer)
                         
                         commandBuffer.commit()
                         commandBuffer.waitUntilCompleted()
@@ -374,6 +390,7 @@ class VideoCompare: ObservableObject {
                                            threadsPerThreadgroup: blockThreadGrpSize[level]!)
                 coder.endEncoding()
         }
+        
 #if TmpDescData
         func normalizedDescriptor(commandBuffer:MTLCommandBuffer, level:Int) throws{
                 guard let coder = commandBuffer.makeComputeCommandEncoder()else{
@@ -420,6 +437,50 @@ class VideoCompare: ObservableObject {
                 
                 coder.dispatchThreadgroups(descriptorThreadGrpNo[level]!,
                                            threadsPerThreadgroup: descriptorThreadGrpSize)
+                coder.endEncoding()
+        }
+        
+        func biLinearInterpolate(commandBuffer:MTLCommandBuffer, level:Int) throws{
+                guard let coder = commandBuffer.makeComputeCommandEncoder()else{
+                        throw ASError.gpuEncoderErr
+                }
+                
+                coder.setComputePipelineState(self.biLinearPipe)
+                
+                coder.setBuffer(self.wtlOfAllLevel[level], offset: 0, index: 0)
+                coder.setBuffer(self.fullWtlBuffer, offset: 0, index: 1)
+                coder.setBytes(&self.videoWidth, length: MemoryLayout<Int>.size, index: 2)
+                coder.setBytes(&self.videoHeight, length: MemoryLayout<Int>.size, index: 3)
+                var descSize = (SideSizeOfLevelZero << level)
+                var levelVar = level
+                coder.setBytes(&descSize, length: MemoryLayout<Int>.size, index:4)
+                coder.setBytes(&levelVar, length: MemoryLayout<Int>.size, index:5)
+                
+                coder.dispatchThreadgroups(pixelThreadGrpNo!,
+                                           threadsPerThreadgroup: pixelThreadGrpSize)
+                coder.endEncoding()
+        }
+        
+        
+        
+        func normalizeFullWtl(commandBuffer:MTLCommandBuffer) throws{
+                
+                var (min, max) = findMinMax(buffer: self.fullWtlBuffer!, length: self.pixelSize)
+                print("min:\(min) max:\(max)")
+                guard let coder = commandBuffer.makeComputeCommandEncoder()else{
+                        throw ASError.gpuEncoderErr
+                }
+                
+                coder.setComputePipelineState(self.normlizePipe)
+                
+                coder.setBuffer(self.fullWtlBuffer, offset: 0, index: 0)
+                coder.setBytes(&min, length: MemoryLayout<Float>.size, index: 1)
+                coder.setBytes(&max, length: MemoryLayout<Float>.size, index: 2)
+                coder.setBytes(&self.videoWidth, length: MemoryLayout<Int>.size, index: 3)
+                coder.setBytes(&self.videoHeight, length: MemoryLayout<Int>.size, index: 4)
+                
+                coder.dispatchThreadgroups(pixelThreadGrpNo!,
+                                           threadsPerThreadgroup: pixelThreadGrpSize)
                 coder.endEncoding()
         }
 }
@@ -516,6 +577,11 @@ extension  VideoCompare{
                         
                         saveRawDataToFile(fileName: "gpu_wtl_\(counter)_level_\(i).json", buffer: wtlOfAllLevel[i]!,
                                           width: self.descriptorNumX[i], height: self.descriptorNumY[i],  type: Float.self)
+                        
+                        
+                        
+                        saveRawDataToFile(fileName: "gpu_wtl_\(counter)_full_normalized.json", buffer: fullWtlBuffer!,
+                                          width: self.videoWidth, height: self.videoHeight,  type: Float.self)
                 }
         }
 #endif
