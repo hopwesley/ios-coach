@@ -420,7 +420,7 @@ kernel void applyBiLinearInterpolationToFullFrame(device const float* wtl [[buff
 
 
 kernel void normalizeImageFromWtl(
-                                  device float* wbi [[buffer(0)]],
+                                  device float* fullMap [[buffer(0)]],
                                   constant float &minVal [[buffer(1)]],
                                   constant float &maxVal [[buffer(2)]],
                                   constant uint &width [[buffer(3)]],
@@ -433,6 +433,6 @@ kernel void normalizeImageFromWtl(
         }
         
         uint index = gid.y * width + gid.x;
-        float val = wbi[index];
-        wbi[index] = (val - minVal) / (maxVal - minVal);
+        float val = fullMap[index];
+        fullMap[index] = (val - minVal) / (maxVal - minVal);
 }
