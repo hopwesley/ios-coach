@@ -367,7 +367,6 @@ kernel void wtlBetweenTwoFrame(device float* avgGradientOneFrameA [[buffer(0)]],
 }
 
 
-
 inline float biLinearInterpolate(float q11, float q12, float q21, float q22, float x1, float x2, float y1, float y2, float x, float y) {
         float denom = (x2 - x1) * (y2 - y1);
         float intermed = q11 * (x2 - x) * (y2 - y) + q21 * (x - x1) * (y2 - y) +
@@ -411,4 +410,24 @@ kernel void applyBiLinearInterpolationToFullFrame(device const float* wtl [[buff
         float q22 = wtl[(i + 1) * (width / blockSize) + (j + 1)];
         
         fullMap[gid.y * width + gid.x] = biLinearInterpolate(q11, q12, q21, q22, float(x1), float(x2), float(y1), float(y2), x, y);
+}
+
+
+kernel void normalizeImage(
+                           device const float* wbi [[buffer(0)]],
+                           device float* normalizedWbi [[buffer(1)]],
+                           constant float &minVal [[buffer(2)]],
+                           constant float &maxVal [[buffer(3)]],
+                           constant uint &width [[buffer(4)]],
+                           constant uint &height [[buffer(5)]],
+                           uint2 gid [[thread_position_in_grid]])
+{
+        
+        if (gid.x >= width || gid.y >= height) {
+                return;
+        }
+        
+        uint index = gid.y * width + gid.x;
+        float val = wbi[index];
+        normalizedWbi[index] = (val - minVal) / (maxVal - minVal);
 }

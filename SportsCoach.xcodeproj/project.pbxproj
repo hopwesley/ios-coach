@@ -522,7 +522,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				"OTHER_SWIFT_FLAGS[arch=*]" = "-DLogTempData";
+				"OTHER_SWIFT_FLAGS[arch=*]" = "-DCompareJsonData";
 				PRODUCT_BUNDLE_IDENTIFIER = com.aisport.coach.SportsCoach;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

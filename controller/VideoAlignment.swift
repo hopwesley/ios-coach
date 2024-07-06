@@ -181,7 +181,7 @@ class VideoAlignment: ObservableObject {
                         memcpy(allFrameSumGradient.contents() + currentOffset, sumGradient.contents(), 10 * MemoryLayout<Float>.stride)
                         currentOffset += 10 * MemoryLayout<Float>.stride
                         frameCount += 1
-#if DEBUG
+#if AlignJsonData
                         let sumPointer = sumGradient.contents().assumingMemoryBound(to: Float.self)
                         if sumPointer.pointee == 0{
                                 debugBuffer(sumGradient: sumGradient)
@@ -361,7 +361,7 @@ class VideoAlignment: ObservableObject {
                 coder.dispatchThreadgroups(summerGroups,threadsPerThreadgroup: summerGroupSize)
                 coder.endEncoding()
         }
-        
+        #if AlignJsonData
         var counter:Int = 0
         func debugBuffer(sumGradient:MTLBuffer){
                 let w = self.videoWidth
@@ -378,7 +378,7 @@ class VideoAlignment: ObservableObject {
                 saveRawDataToFile(fileName: "gpu_gradientSumOfOneFrame_\(counter).json", buffer: sumGradient,  width: 10, height: 1,  type: Float.self)
                 counter+=1
         }
-        
+        #endif
         func cipherVideo(buffer:MTLBuffer, offset: Int, len: Int) async throws {
                 guard let videoURL = self.videoURL else {
                         throw ASError.cipherErr
@@ -397,7 +397,7 @@ class VideoAlignment: ObservableObject {
                 
                 let asset = AVAsset(url: videoURL)
                 let outputURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(videoURL.lastPathComponent+"_trimmedVideo.mp4")
-#if DEBUG
+#if AlignJsonData
                 saveRawDataToFile(fileName: outputURL.lastPathComponent+".json", buffer: resultBuffer, width: 10, height: len, type: Float.self)
 #endif
                 // Remove existing file at output URL
