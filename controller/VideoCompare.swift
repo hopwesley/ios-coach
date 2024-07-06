@@ -33,7 +33,7 @@ class VideoCompare: ObservableObject {
         var grayAndDiffPipe: MTLComputePipelineState!
         var spaceGradientPipe: MTLComputePipelineState!
         var averageBlockGradientPipe: MTLComputePipelineState!
-        var descriptorPipe: MTLComputePipelineState!
+        var wtlPipe: MTLComputePipelineState!
         
         var grayBufferPreB:MTLBuffer?
         var grayBufferCurB:MTLBuffer?
@@ -41,7 +41,13 @@ class VideoCompare: ObservableObject {
         var gradientBufferYB:MTLBuffer?
         var gradientBufferTB:MTLBuffer?
         var avgGradientOfBlockB:[MTLBuffer?]=[]
+        
+        
+#if LogTempData2
+        var descriptorPipe: MTLComputePipelineState!
         var descriptorBufferB:[MTLBuffer?]=[]
+        var descriptorBufferA:[MTLBuffer?]=[]
+#endif
         
         var grayBufferPreA:MTLBuffer?
         var grayBufferCurA:MTLBuffer?
@@ -49,8 +55,8 @@ class VideoCompare: ObservableObject {
         var gradientBufferYA:MTLBuffer?
         var gradientBufferTA:MTLBuffer?
         var avgGradientOfBlockA:[MTLBuffer?]=[]
-        var descriptorBufferA:[MTLBuffer?]=[]
         
+        var wtlOfAllLevel:[MTLBuffer?]=[]
         
         var projectionBuf:MTLBuffer?
         
@@ -91,22 +97,31 @@ class VideoCompare: ObservableObject {
                 guard let grayAndDiff = library.makeFunction(name: "grayAndTimeDiffTwoFrame"),
                       let spaceGradientFun = library.makeFunction(name: "spaceGradientTwoFrameTwoFrame"),
                       let quantizeGradientFun = library.makeFunction(name: "quantizeAvgerageGradientOfTwoBlock"),
-                      let descriptorFun = library.makeFunction(name: "normalizedDescriptor") else{
+                      
+                        let descriptorFun = library.makeFunction(name: "normalizedDescriptor"),
+                  
+                      let wtlFun = library.makeFunction(name: "wtlBetweenTwoFrame") else{
                         throw ASError.shaderLoadErr
                 }
                 
                 grayAndDiffPipe = try device.makeComputePipelineState(function: grayAndDiff)
                 spaceGradientPipe = try device.makeComputePipelineState(function: spaceGradientFun)
                 averageBlockGradientPipe = try device.makeComputePipelineState(function: quantizeGradientFun)
-                descriptorPipe = try device.makeComputePipelineState(function: descriptorFun)
+                wtlPipe = try device.makeComputePipelineState(function: wtlFun)
                 
                 avgGradientOfBlockA = Array(repeating: nil, count: 3)
                 avgGradientOfBlockB = Array(repeating: nil, count: 3)
-                descriptorBufferA = Array(repeating: nil, count: 3)
-                descriptorBufferB = Array(repeating: nil, count: 3)
                 descriptorThreadGrpNo = Array(repeating: nil, count: 3)
                 blockThreadGrpNo = Array(repeating: nil, count: 3)
                 blockThreadGrpSize = Array(repeating: nil, count: 3)
+                wtlOfAllLevel = Array(repeating: nil, count: 3)
+                
+                
+#if LogTempData2
+                descriptorPipe = try device.makeComputePipelineState(function: descriptorFun)
+                descriptorBufferA = Array(repeating: nil, count: 3)
+                descriptorBufferB = Array(repeating: nil, count: 3)
+#endif
         }
         
         private func prepareVideoParam() async throws{
@@ -184,7 +199,7 @@ class VideoCompare: ObservableObject {
                 
                 self.descriptorNumY[level] =  self.numBlocksY [level] - blockNoInOneDesc + 1
                 self.descriptorNumX[level] = self.numBlocksX[level]  - blockNoInOneDesc + 1
-                self.descriptorNo[level] = self.descriptorNumY[level]  * self.descriptorNumX[level]  * DescriptorSize
+                self.descriptorNo[level] = self.descriptorNumY[level]  * self.descriptorNumX[level]
                 
                 self.descriptorThreadGrpNo[level] = MTLSize(
                         width: (self.descriptorNumX[level]  + 7) / 8,
@@ -199,12 +214,17 @@ class VideoCompare: ObservableObject {
                 self.avgGradientOfBlockA[level] = avgGradientAllBlockA
                 self.avgGradientOfBlockB[level] = avgGradientAllBlockB
                 
-                guard let descriptorA = device.makeBuffer(length: self.descriptorNo[level]  * MemoryLayout<Float>.stride, options: .storageModeShared),
-                      let descriptorB = device.makeBuffer(length: self.descriptorNo[level]  * MemoryLayout<Float>.stride, options: .storageModeShared)else{
+                guard let descriptorA = device.makeBuffer(length: self.descriptorNo[level]  * DescriptorSize * MemoryLayout<Float>.stride, options: .storageModeShared),
+                      let descriptorB = device.makeBuffer(length: self.descriptorNo[level]  * DescriptorSize * MemoryLayout<Float>.stride, options: .storageModeShared),
+                      let wtl = device.makeBuffer(length: self.descriptorNo[level] * MemoryLayout<Float>.stride, options: .storageModeShared) else{
                         throw ASError.gpuBufferErr
                 }
+                
+#if LogTempData2
                 self.descriptorBufferA[level] = descriptorA
                 self.descriptorBufferB[level] = descriptorB
+#endif
+                self.wtlOfAllLevel[level] = wtl
         }
         
         private func resetGpuBuffer(){
@@ -224,8 +244,11 @@ class VideoCompare: ObservableObject {
                 for i in 0..<3{
                         memset(avgGradientOfBlockA[i]?.contents(), 0, numBlockNo[i]   * MemoryLayout<Float>.stride)
                         memset(avgGradientOfBlockB[i]?.contents(), 0, numBlockNo[i]   * MemoryLayout<Float>.stride)
-                        memset(descriptorBufferA[i]?.contents(), 0, descriptorNo[i]  * MemoryLayout<Float>.stride)
-                        memset(descriptorBufferB[i]?.contents(), 0, descriptorNo[i]  * MemoryLayout<Float>.stride)
+                        #if LogTempData2
+                        memset(descriptorBufferA[i]?.contents(), 0, descriptorNo[i] * DescriptorSize * MemoryLayout<Float>.stride)
+                        memset(descriptorBufferB[i]?.contents(), 0, descriptorNo[i]  * DescriptorSize * MemoryLayout<Float>.stride)
+                        #endif
+                        memset(wtlOfAllLevel[i]?.contents(), 0, descriptorNo[i] * MemoryLayout<Float>.stride)
                 }
         }
         
@@ -262,8 +285,10 @@ class VideoCompare: ObservableObject {
                         for i in 0..<3{
                                 
                                 try self.avgBlockGradient(commandBuffer: commandBuffer, level: i)
-                                
+#if LogTempData2
                                 try self.normalizedDescriptor(commandBuffer:commandBuffer, level: i)
+#endif
+                                try self.distanceOfDiscriptor(commandBuffer: commandBuffer, level: i)
                         }
                         
                         commandBuffer.commit()
@@ -348,7 +373,7 @@ class VideoCompare: ObservableObject {
                                            threadsPerThreadgroup: blockThreadGrpSize[level]!)
                 coder.endEncoding()
         }
-        
+        #if LogTempData2
         func normalizedDescriptor(commandBuffer:MTLCommandBuffer, level:Int) throws{
                 guard let coder = commandBuffer.makeComputeCommandEncoder()else{
                         throw ASError.gpuEncoderErr
@@ -367,6 +392,30 @@ class VideoCompare: ObservableObject {
                 var levelVar = level
                 coder.setBytes(&levelVar, length: MemoryLayout<Int>.size, index: 6)
                 coder.setBytes(&(numBlocksX[level]), length: MemoryLayout<Int>.size, index: 7)
+                
+                coder.dispatchThreadgroups(descriptorThreadGrpNo[level]!,
+                                           threadsPerThreadgroup: descriptorThreadGrpSize)
+                coder.endEncoding()
+        }
+        #endif
+        
+        func distanceOfDiscriptor(commandBuffer:MTLCommandBuffer, level:Int) throws{
+                guard let coder = commandBuffer.makeComputeCommandEncoder()else{
+                        throw ASError.gpuEncoderErr
+                }
+                
+                coder.setComputePipelineState(self.wtlPipe)
+                
+                coder.setBuffer(avgGradientOfBlockA[level], offset: 0, index: 0)
+                coder.setBuffer(avgGradientOfBlockB[level], offset: 0, index: 1)
+                
+                coder.setBuffer(wtlOfAllLevel[level], offset: 0, index: 2)
+                
+                coder.setBytes(&(self.descriptorNumX[level]), length: MemoryLayout<Int>.size, index: 3)
+                coder.setBytes(&(self.descriptorNumY[level]), length: MemoryLayout<Int>.size, index: 4)
+                var levelVar = level
+                coder.setBytes(&levelVar, length: MemoryLayout<Int>.size, index:5)
+                coder.setBytes(&(numBlocksX[level]), length: MemoryLayout<Int>.size, index: 6)
                 
                 coder.dispatchThreadgroups(descriptorThreadGrpNo[level]!,
                                            threadsPerThreadgroup: descriptorThreadGrpSize)
@@ -452,7 +501,7 @@ extension  VideoCompare{
                                                    width: self.numBlocksX[i], height: self.numBlocksY[i],
                                                    depth: HistogramSize, type: Float.self)
                         
-                        
+                        #if LogTempData2
                         saveRawDataToFileWithDepth(fileName: "gpu_descriptor_\(counter)_a_level_\(i).json",
                                                    buffer: self.descriptorBufferA[i]!,
                                                    width: self.descriptorNumX[i], height: self.descriptorNumY[i],
@@ -462,6 +511,10 @@ extension  VideoCompare{
                                                    buffer: self.descriptorBufferB[i]!,
                                                    width: self.descriptorNumX[i], height: self.descriptorNumX[i],
                                                    depth: DescriptorSize, type: Float.self)
+                        #endif
+                        
+                        saveRawDataToFile(fileName: "gpu_wtl_\(counter)_level_\(i).json", buffer: wtlOfAllLevel[i]!,
+                                          width: self.descriptorNumX[i], height: self.descriptorNumY[i],  type: Float.self)
                 }
 #endif
         }

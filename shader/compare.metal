@@ -306,8 +306,109 @@ kernel void normalizedDescriptor(device float* avgGradientOneFrameA [[buffer(0)]
         uint descriptorIdx = gid.y * descWidth + gid.x;
         
         for (uint i = 0; i < DescriptorSize; i++) {
-                
                 descriptorBufferA[descriptorIdx * DescriptorSize+ i] = descriptDataA[i];
                 descriptorBufferB[descriptorIdx * DescriptorSize + i] = descriptDataB[i];
         }
+}
+
+
+inline float calculateEuclideanDistance(thread float* descriptorA, thread float* descriptorB) {
+        float sumSquares = 0.0f;
+        for (uint i = 0; i < DescriptorSize; ++i) {
+                float diff = descriptorA[i] - descriptorB[i];
+                sumSquares += diff * diff;
+        }
+        return sqrt(sumSquares);
+}
+
+kernel void wtlBetweenTwoFrame(device float* avgGradientOneFrameA [[buffer(0)]],
+                               device float* avgGradientOneFrameB [[buffer(1)]],
+                               device float* wtlBuffer [[buffer(2)]],
+                               constant uint &descWidth [[buffer(3)]],
+                               constant uint &descHeight [[buffer(4)]],
+                               constant uint &level [[buffer(5)]],
+                               constant uint &numBlocksX [[buffer(6)]],
+                               uint2 gid [[thread_position_in_grid]])
+{
+        if (gid.x >=  descWidth|| gid.y >= descHeight) {
+                return;
+        }
+        
+        float descriptDataA[DescriptorSize] = {0.0f};
+        float descriptDataB[DescriptorSize] = {0.0f};
+        
+        for (int wRowIdx = 0; wRowIdx < blockNumOneDescriptor; ++wRowIdx) {
+                
+                uint gradientBlockRowStartIdx = (gid.y+wRowIdx) * numBlocksX + gid.x;
+                
+                for (int wColIdx = 0; wColIdx < blockNumOneDescriptor; ++wColIdx) {
+                        
+                        float weight = weightsWithDistance[level][wRowIdx][wColIdx];
+                        
+                        uint gradientIdx = gradientBlockRowStartIdx + wColIdx;
+                        
+                        int cellIdxInDescriptor = (wRowIdx/Cell_m)*Cell_M + wColIdx/Cell_m;
+                        
+                        for (int histogramIdx = 0; histogramIdx < HistogramSize; ++histogramIdx){
+                                
+                                descriptDataA[cellIdxInDescriptor*HistogramSize + histogramIdx] += avgGradientOneFrameA[gradientIdx * HistogramSize + histogramIdx] * weight;
+                                
+                                descriptDataB[cellIdxInDescriptor*HistogramSize + histogramIdx] += avgGradientOneFrameB[gradientIdx  * HistogramSize + histogramIdx] * weight;
+                        }
+                }
+        }
+        
+        
+        normalizeArray(descriptDataA, DescriptorSize);
+        normalizeArray(descriptDataB, DescriptorSize);
+        
+        uint descriptorIdx = gid.y * descWidth + gid.x;
+        wtlBuffer[descriptorIdx] = calculateEuclideanDistance(descriptDataA,descriptDataB);
+}
+
+
+
+inline float biLinearInterpolate(float q11, float q12, float q21, float q22, float x1, float x2, float y1, float y2, float x, float y) {
+        float denom = (x2 - x1) * (y2 - y1);
+        float intermed = q11 * (x2 - x) * (y2 - y) + q21 * (x - x1) * (y2 - y) +
+        q12 * (x2 - x) * (y - y1) + q22 * (x - x1) * (y - y1);
+        return intermed / denom;
+}
+
+
+kernel void applyBiLinearInterpolationToFullFrame(device const float* wtl [[buffer(0)]],
+                                                  device float* fullMap [[buffer(1)]],
+                                                  constant uint &width [[buffer(2)]],
+                                                  constant uint &height [[buffer(3)]],
+                                                  constant uint &S_0 [[buffer(4)]],
+                                                  uint2 gid [[thread_position_in_grid]]) {
+        if (gid.x >= width || gid.y >= height) {
+                return;
+        }
+        
+        
+        uint blockSize = S_0 / Cell_M / Cell_m;
+        uint shift = S_0 / 2;
+        
+        uint j = gid.x / blockSize;
+        uint i = gid.y / blockSize;
+        
+        if (i >= height / blockSize - 1 || j >= width / blockSize - 1) {
+                return;
+        }
+        
+        uint x1 = j * blockSize + shift;
+        uint x2 = (j + 1) * blockSize + shift;
+        uint y1 = i * blockSize + shift;
+        uint y2 = (i + 1) * blockSize + shift;
+        
+        float x = gid.x;
+        float y = gid.y;
+        
+        float q11 = wtl[i * (width / blockSize) + j];
+        float q12 = wtl[i * (width / blockSize) + (j + 1)];
+        float q21 = wtl[(i + 1) * (width / blockSize) + j];
+        float q22 = wtl[(i + 1) * (width / blockSize) + (j + 1)];
+        
+        fullMap[gid.y * width + gid.x] = biLinearInterpolate(q11, q12, q21, q22, float(x1), float(x2), float(y1), float(y2), x, y);
 }
