@@ -452,10 +452,12 @@ class VideoCompare: ObservableObject {
                 coder.setBuffer(self.fullWtlBuffer[level], offset: 0, index: 1)
                 coder.setBytes(&self.videoWidth, length: MemoryLayout<Int>.size, index: 2)
                 coder.setBytes(&self.videoHeight, length: MemoryLayout<Int>.size, index: 3)
-                var descSize = (SideSizeOfLevelZero << level)
-                var levelVar = level
-                coder.setBytes(&descSize, length: MemoryLayout<Int>.size, index:4)
-                coder.setBytes(&levelVar, length: MemoryLayout<Int>.size, index:5)
+                var shift =  (SideSizeOfLevelZero << level) / 2
+                var descDistanceInPixel = (SideSizeOfLevelZero << level)/DescriptorParam_M/DescriptorParam_m
+                coder.setBytes(&descDistanceInPixel, length: MemoryLayout<Int>.size, index:4)
+                coder.setBytes(&self.descriptorNumX, length: MemoryLayout<Int>.size, index:5)
+                coder.setBytes(&self.descriptorNumY, length: MemoryLayout<Int>.size, index:6)
+                coder.setBytes(&shift, length: MemoryLayout<Int>.size, index:7)
                 
                 coder.dispatchThreadgroups(pixelThreadGrpNo!,
                                            threadsPerThreadgroup: pixelThreadGrpSize)
