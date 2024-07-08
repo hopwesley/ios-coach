@@ -554,7 +554,7 @@ kernel void calculatePercentiles(
 
 kernel void adjustContrastAndMap(
                                  device const uchar* image [[buffer(0)]],
-                                 device float* mappedFrame [[buffer(1)]],
+                                 device float* adjustedFrame [[buffer(1)]],
                                  constant uint* percentiles [[buffer(2)]], // 合并的数组
                                  constant float& betaLow [[buffer(3)]],
                                  constant float& betaHigh [[buffer(4)]],
@@ -580,5 +580,40 @@ kernel void adjustContrastAndMap(
                 result = betaLow + (betaHigh - betaLow) * (fVal - float(I_low)) / (float(I_high) - float(I_low));
         }
         
-        mappedFrame[gid] = result;
+        adjustedFrame[gid] = result;
+}
+
+
+constant float4 lowColor = float4(255.0 / 255.0, 253.0 / 255.0, 175.0 / 255.0, 1.0); // RGBA normalized
+constant float4 highColor = float4(1.0, 0.0, 0.0, 1.0); // RGBA normalized
+
+inline float4 fc(float score) {
+        score = clamp(score, 0.0, 1.0); // Ensure score is within 0 to 1
+        return mix(lowColor, highColor, score); // Linear interpolation between colors based on score
+}
+
+
+kernel void overlayKernel(
+                          texture2d<float, access::write> outTexture [[texture(0)]],
+                          device float* fullMap [[buffer(0)]],
+                          device float* adjustedFrame [[buffer(1)]],
+                          constant uint& width [[buffer(2)]],
+                          constant uint& height [[buffer(3)]],
+                          device float* gradientMagnitude [[buffer(4)]],
+                          uint2 gid [[thread_position_in_grid]])
+{
+        if (gid.x >= width || gid.y >= height) return;
+        
+        uint idx = gid.y * width + gid.x;
+        
+        float score = fullMap[idx];
+        float4 heatMapColor = fc(score);
+        float gm = gradientMagnitude[idx];
+        float grayValue = adjustedFrame[idx];
+        
+        // Calculate color values
+        float4 resultColor = float4((1-gm) * grayValue + gm * heatMapColor.rgb, 1.0); // Composite the color
+        
+        // Write to texture
+        outTexture.write(resultColor, gid);
 }

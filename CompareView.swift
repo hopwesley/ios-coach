@@ -52,6 +52,7 @@ struct CompareView: View {
                                                         .frame(height: 200)
                                                         .background(Color.black)
                                         }
+                                     
                                 }
                                 .padding(20) // Add padding around the entire content
                                 .background(Color.white) // Add a white background

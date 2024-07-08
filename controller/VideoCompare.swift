@@ -8,9 +8,11 @@ import Foundation
 
 import AVFoundation
 import CoreImage
+import UIKit
 
 class VideoCompare: ObservableObject {
         @Published var processingMessage: String = "开始处理..."
+        @Published var tmpImg: UIImage?
         
         var videoWidth:Int = 0
         var videoHeight:Int = 0
@@ -39,6 +41,7 @@ class VideoCompare: ObservableObject {
         var maxMinPipe:MTLComputePipelineState!
         var percentilePipe:MTLComputePipelineState!
         var adjustMapPipe:MTLComputePipelineState!
+        var overlayMapPipe:MTLComputePipelineState!
         
         var grayBufferPreB:MTLBuffer?
         var grayBufferCurB:MTLBuffer?
@@ -85,6 +88,7 @@ class VideoCompare: ObservableObject {
         var maxMinBuffer:MTLBuffer?
         var percentileLowHighBuffer:MTLBuffer?
         var adjustMapBuffer:MTLBuffer?
+        var outTexture:MTLTexture?
         
         
         func CompareAction(videoA:URL,videoB:URL)async throws{
@@ -119,7 +123,8 @@ class VideoCompare: ObservableObject {
                       let normlizeFun  =  library.makeFunction(name: "normalizeImageFromWtl"),
                       let minMaxFun  =  library.makeFunction(name: "reduceMinMaxKernel"),
                       let adjustFun  =  library.makeFunction(name: "adjustContrastAndMap"),
-                      let percentileFun  =  library.makeFunction(name: "calculatePercentiles") else{
+                      let percentileFun  =  library.makeFunction(name: "calculatePercentiles"),
+                      let overlayFun  =  library.makeFunction(name: "overlayKernel") else{
                         throw ASError.shaderLoadErr
                 }
                 
@@ -132,6 +137,7 @@ class VideoCompare: ObservableObject {
                 maxMinPipe =  try device.makeComputePipelineState(function: minMaxFun)
                 percentilePipe =  try device.makeComputePipelineState(function: percentileFun)
                 adjustMapPipe  =  try device.makeComputePipelineState(function: adjustFun)
+                overlayMapPipe =  try device.makeComputePipelineState(function: overlayFun)
                 
                 avgGradientOfBlockA = Array(repeating: nil, count: 3)
                 avgGradientOfBlockB = Array(repeating: nil, count: 3)
@@ -186,7 +192,8 @@ class VideoCompare: ObservableObject {
                       let ggBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<Float>.stride, options: .storageModeShared),
                       let ptBuffer = device.makeBuffer(length: 256 * MemoryLayout<UInt32>.stride, options: .storageModeShared),
                       let lowHighBuffer = device.makeBuffer(length: MemoryLayout<Float>.size * 2, options: .storageModeShared),
-                      let adBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<Float>.stride, options: .storageModeShared)  else{
+                      let adBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<Float>.stride, options: .storageModeShared),
+                let outTexture = device.makeTexture(descriptor: textureDescriptor) else{
                         throw ASError.gpuBufferErr
                 }
                 
@@ -210,6 +217,7 @@ class VideoCompare: ObservableObject {
                 self.percentileBuffer = ptBuffer
                 self.percentileLowHighBuffer = lowHighBuffer
                 self.adjustMapBuffer = adBuffer
+                self.outTexture = outTexture
                 
                 pixelThreadGrpNo = MTLSize(width: (self.videoWidth + PixelThreadWidth - 1) / PixelThreadWidth,
                                            height: (self.videoHeight + PixelThreadHeight - 1) / PixelThreadHeight,
@@ -289,7 +297,7 @@ class VideoCompare: ObservableObject {
                 memset(percentileLowHighBuffer?.contents(), 0, 2 * MemoryLayout<UInt8>.stride)
                 memset(percentileBuffer?.contents(), 0, 256 * MemoryLayout<UInt32>.stride)
                 memset(adjustMapBuffer?.contents(), 0, self.pixelSize * MemoryLayout<Float>.stride)
-                
+                //                memset(outputImageBuffer?.contents(), 0, self.pixelSize * 4)//TODO::texture memset 0
                 
                 for i in 0..<3{
                         memset(avgGradientOfBlockA[i]?.contents(), 0, numBlockNo[i]   * MemoryLayout<Float>.stride)
@@ -343,6 +351,7 @@ class VideoCompare: ObservableObject {
                                 
                                 try self.biLinearInterpolate(commandBuffer: commandBuffer, level: i)
                                 
+                                
                         }
                         
                         commandBuffer.commit()
@@ -367,6 +376,8 @@ class VideoCompare: ObservableObject {
                         try self.percentileOfFrameA(commandBuffer: commandBuffer)
                         
                         try self.adjustAFrame(commandBuffer: commandBuffer)
+                        
+                        try self.overlayFinalImg(commandBuffer:commandBuffer);
                         
                         commandBuffer.commit()
                         commandBuffer.waitUntilCompleted()
@@ -631,6 +642,25 @@ class VideoCompare: ObservableObject {
                 coder.endEncoding()
         }
         
+        func overlayFinalImg(commandBuffer:MTLCommandBuffer) throws{
+                guard let coder = commandBuffer.makeComputeCommandEncoder()else{
+                        throw ASError.gpuEncoderErr
+                }
+                
+                coder.setComputePipelineState(self.overlayMapPipe)
+                
+                coder.setTexture(outTexture, index: 0)
+                coder.setBuffer(self.fullWtlInOneBuffer, offset: 0, index: 0)
+                coder.setBuffer(self.adjustMapBuffer, offset: 0, index: 1)
+                var width = self.videoWidth
+                var height = self.videoHeight
+                coder.setBytes(&width, length: MemoryLayout<UInt>.size, index: 2)
+                coder.setBytes(&height, length: MemoryLayout<UInt>.size, index: 3)
+                coder.setBuffer(self.gradientMagnitude, offset: 0, index: 4)
+                
+                coder.dispatchThreadgroups(pixelThreadGrpNo!, threadsPerThreadgroup: pixelThreadGrpSize)
+                coder.endEncoding()
+        }
 }
 
 
