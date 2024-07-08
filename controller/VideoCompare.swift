@@ -45,7 +45,7 @@ class VideoCompare: ObservableObject {
         var gradientBufferTB:MTLBuffer?
         var avgGradientOfBlockB:[MTLBuffer?]=[]
         
-        
+        var gradientMagnitude:MTLBuffer?
 #if TmpDescData
         var descriptorPipe: MTLComputePipelineState!
         var descriptorBufferB:[MTLBuffer?]=[]
@@ -129,7 +129,6 @@ class VideoCompare: ObservableObject {
                 blockThreadGrpSize = Array(repeating: nil, count: 3)
                 wtlOfAllLevel = Array(repeating: nil, count: 3)
                 fullWtlBuffer = Array(repeating: nil, count: 3)
-                
 #if TmpDescData
                 descriptorPipe = try device.makeComputePipelineState(function: descriptorFun)
                 descriptorBufferA = Array(repeating: nil, count: 3)
@@ -173,7 +172,8 @@ class VideoCompare: ObservableObject {
                       let pBuffer = device.makeBuffer(bytes: normalizedP, length: MemoryLayout<SIMD3<Float>>.stride * normalizedP.count, options: .storageModeShared),
                       let fwBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<Float>.stride, options: .storageModeShared),
                       let finalBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<UInt8>.stride, options: .storageModeShared),
-                      let resultBuffer = device.makeBuffer(length: MemoryLayout<Float>.size * 2, options: .storageModeShared) else{
+                      let resultBuffer = device.makeBuffer(length: MemoryLayout<Float>.size * 2, options: .storageModeShared),
+                      let ggBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<Float>.stride, options: .storageModeShared) else{
                         throw ASError.gpuBufferErr
                 }
                 
@@ -193,6 +193,7 @@ class VideoCompare: ObservableObject {
                 self.fullWtlInOneBuffer = fwBuffer
                 self.finalImgBuffer = finalBuffer
                 self.maxMinBuffer = resultBuffer
+                self.gradientMagnitude = ggBuffer
                 
                 pixelThreadGrpNo = MTLSize(width: (self.videoWidth + PixelThreadWidth - 1) / PixelThreadWidth,
                                            height: (self.videoHeight + PixelThreadHeight - 1) / PixelThreadHeight,
@@ -265,6 +266,7 @@ class VideoCompare: ObservableObject {
                 memset(fullWtlInOneBuffer?.contents(), 0, self.pixelSize * MemoryLayout<Float>.stride)
                 memset(finalImgBuffer?.contents(), 0, self.pixelSize * MemoryLayout<UInt8>.stride)
                 memset(maxMinBuffer?.contents(), 0, 2 * MemoryLayout<UInt8>.stride)
+                memset(gradientMagnitude?.contents(), 0, self.pixelSize * MemoryLayout<Float>.stride)
                 
                 for i in 0..<3{
                         memset(avgGradientOfBlockA[i]?.contents(), 0, numBlockNo[i]   * MemoryLayout<Float>.stride)
@@ -370,6 +372,7 @@ class VideoCompare: ObservableObject {
                 grayCoder.setBuffer(grayBufferPreB, offset: 0, index: 3)
                 grayCoder.setBuffer(grayBufferCurB, offset: 0, index: 4)
                 grayCoder.setBuffer(gradientBufferTB, offset: 0, index: 5)
+                
                 grayCoder.dispatchThreadgroups(pixelThreadGrpNo!,
                                                threadsPerThreadgroup: pixelThreadGrpSize)
                 grayCoder.endEncoding()
@@ -389,7 +392,10 @@ class VideoCompare: ObservableObject {
                 var h = self.videoHeight
                 gradeintCoder.setBytes(&w, length: MemoryLayout<Int>.size, index: 6)
                 gradeintCoder.setBytes(&h, length: MemoryLayout<Int>.size, index: 7)
-                
+                var alphaVar = Overlay_Param_Alpha
+                gradeintCoder.setBytes(&alphaVar, length: MemoryLayout<Float>.size, index: 8)
+                gradeintCoder.setBuffer(gradientMagnitude, offset: 0, index: 9)
+               
                 gradeintCoder.dispatchThreadgroups(pixelThreadGrpNo!,
                                                    threadsPerThreadgroup: pixelThreadGrpSize)
                 gradeintCoder.endEncoding()
@@ -614,6 +620,10 @@ extension  VideoCompare{
                 guard debug else{
                         return
                 }
+                
+                saveRawDataToFile(fileName: "gpu_gradient_magnitude_\(counter)_.json", buffer: gradientMagnitude!,
+                                  width: self.videoWidth, height: self.videoHeight,  type: Float.self)
+                
                 for i in 0..<3{
                         
                         saveRawDataToFileWithDepth(fileName: "gpu_average_block_\(counter)_a_level_\(i).json",

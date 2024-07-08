@@ -18,6 +18,10 @@ let DescriptorSize = DescriptorParam_M * DescriptorParam_M * HistogramSize
 let ThreadSizeForParallelSum = 32
 let threadGroupSizeForMaxMin = 256
 let phi = Float((1.0 + sqrt(5.0)) / 2.0)
+let Overlay_Param_Alpha = Float(0.75)
+let Overlay_Param_Beta1 = Float(0.2)
+let Overlay_Param_Beta2 = Float(0.8)
+
 let icosahedronCenterP: [SIMD3<Float>] = [
     SIMD3(0, 1 / phi, phi),
     SIMD3(0, -1 / phi, phi),

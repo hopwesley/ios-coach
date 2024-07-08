@@ -25,6 +25,10 @@ constant int blockNumOneDescriptor = Cell_M * Cell_m;
 constant int HistogramSize = 10;
 constant int DescriptorSize = Cell_M*Cell_M*HistogramSize;
 
+//constant float maxChannelValue = 255.0;
+//constant float maxGradient = sqrt(maxChannelValue * maxChannelValue * 2.0);
+constant float maxGradient = 360.625;  // 近似的值，使用 float 精度即可
+
 constant float weightsWithDistance[3][blockNumOneDescriptor][blockNumOneDescriptor] = {
         {
         {0.00988869936854563, 0.01192804830576989, 0.013516249485789531, 0.014387972682974322, 0.014387972682974322, 0.013516249485789531, 0.01192804830576989, 0.00988869936854563},
@@ -143,6 +147,8 @@ kernel void spaceGradientTwoFrameTwoFrame(
                                           device short* outGradientYB [[buffer(5)]],
                                           constant uint &width [[buffer(6)]],
                                           constant uint &height [[buffer(7)]],
+                                          constant float &alpha [[buffer(8)]],
+                                          device float* gradientMagnitude [[buffer(9)]],
                                           uint2 gid [[thread_position_in_grid]])
 {
         if (gid.x == 0 || gid.x >= width - 1 || gid.y == 0 || gid.y >= height - 1) return;
@@ -150,6 +156,12 @@ kernel void spaceGradientTwoFrameTwoFrame(
         spaceGradient(grayBuffer,outGradientX,outGradientY,width, height, gid);
         
         spaceGradient(grayBufferB,outGradientXB,outGradientYB,width, height, gid);
+        
+        int index = gid.y * width + gid.x;
+        float2 gradient = float2((float)outGradientXB[index], (float)outGradientYB[index]);
+        float g = length(gradient) / maxGradient;
+        g = min(1.0, alpha * g);
+        gradientMagnitude[index] = g;
 }
 
 
