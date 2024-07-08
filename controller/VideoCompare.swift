@@ -154,7 +154,8 @@ class VideoCompare: ObservableObject {
                         mipmapped: false
                 )
                 textureDescriptor.usage = [.shaderRead, .shaderWrite]
-                self.numGroupsMaxMin = MTLSize(width: (self.pixelSize + threadGroupSizeForMaxMin - 1) / threadGroupSizeForMaxMin, height: 1, depth: 1)
+                self.numGroupsMaxMin = MTLSize(width: (self.pixelSize + threadGroupSizeForMaxMin - 1) / threadGroupSizeForMaxMin / 8, height: 1, depth: 1)
+                //                self.numGroupsMaxMin = MTLSize(width: 4, height: 1, depth: 1)
         }
         
         private func prepareFrameBuffer() throws{
@@ -326,6 +327,13 @@ class VideoCompare: ObservableObject {
                         guard let commandBuffer = self.commandQueue.makeCommandBuffer() else{
                                 throw  ASError.gpuBufferErr
                         }
+                        let (min, max) = findMinMax(buffer: self.fullWtlInOneBuffer!, length: self.pixelSize)
+                        print("cpu min:\(min) max:\(max)")
+                        let pointer = self.maxMinBuffer!.contents().bindMemory(to: Float.self, capacity: 2)
+                        pointer[0] = min // 更新最小值
+                        pointer[1] = max // 更新最大值
+#else
+                        try self.findMinMaxVal(commandBuffer: commandBuffer)
 #endif
                         try self.normalizeFullWtl(commandBuffer: commandBuffer)
                         
@@ -517,7 +525,7 @@ class VideoCompare: ObservableObject {
                 
                 var groupSize = self.threadsPerGroupMaxMin.width
                 maxMinCoder.setBytes(&groupSize, length: MemoryLayout<UInt>.size, index: 4)
-               
+                
                 maxMinCoder.setThreadgroupMemoryLength(threadGroupSizeForMaxMin * MemoryLayout<Float>.size, index: 0) // 对于localMin
                 maxMinCoder.setThreadgroupMemoryLength(threadGroupSizeForMaxMin * MemoryLayout<Float>.size, index: 1) // 对于localMax
                 
@@ -526,15 +534,6 @@ class VideoCompare: ObservableObject {
         }
         
         func normalizeFullWtl(commandBuffer:MTLCommandBuffer) throws{
-                
-#if USINGCPUMAX
-                let (min, max) = findMinMax(buffer: self.fullWtlInOneBuffer!, length: self.pixelSize)
-                print("min:\(min) max:\(max)")
-                let pointer = self.maxMinBuffer!.contents().bindMemory(to: Float.self, capacity: 2)
-                pointer[0] = min // 更新最小值
-                pointer[1] = max // 更新最大值
-//#else
-#endif
                 guard let coder = commandBuffer.makeComputeCommandEncoder()else{
                         throw ASError.gpuEncoderErr
                 }
