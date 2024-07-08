@@ -522,6 +522,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_SWIFT_FLAGS = "";
 				"OTHER_SWIFT_FLAGS[arch=*]" = "-DCompareJsonData -DDEBUGTMPWTL -DUSINGCPUMAX";
 				PRODUCT_BUNDLE_IDENTIFIER = com.aisport.coach.SportsCoach;
 				PRODUCT_NAME = "$(TARGET_NAME)";

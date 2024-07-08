@@ -77,7 +77,7 @@ class VideoCompare: ObservableObject {
         var descriptorThreadGrpNo:[MTLSize?]=[]
         var maxMinBuffer:MTLBuffer?
         
-        let threadsPerGroupMaxMin = MTLSize(width: 256, height: 1, depth: 1)
+        let threadsPerGroupMaxMin = MTLSize(width: threadGroupSizeForMaxMin, height: 1, depth: 1)
         var numGroupsMaxMin:MTLSize?
         
         func CompareAction(videoA:URL,videoB:URL)async throws{
@@ -154,7 +154,7 @@ class VideoCompare: ObservableObject {
                         mipmapped: false
                 )
                 textureDescriptor.usage = [.shaderRead, .shaderWrite]
-                self.numGroupsMaxMin = MTLSize(width: (self.pixelSize + 255) / 256, height: 1, depth: 1)
+                self.numGroupsMaxMin = MTLSize(width: (self.pixelSize + threadGroupSizeForMaxMin - 1) / threadGroupSizeForMaxMin, height: 1, depth: 1)
         }
         
         private func prepareFrameBuffer() throws{
@@ -501,15 +501,7 @@ class VideoCompare: ObservableObject {
                 coder.endEncoding()
         }
         
-        func normalizeFullWtl(commandBuffer:MTLCommandBuffer) throws{
-                
-#if USINGCPUMAX
-                let (min, max) = findMinMax(buffer: self.fullWtlInOneBuffer!, length: self.pixelSize)
-                print("min:\(min) max:\(max)")
-                let pointer = self.maxMinBuffer!.contents().bindMemory(to: Float.self, capacity: 2)
-                pointer[0] = min // 更新最小值
-                pointer[1] = max // 更新最大值
-#else
+        func findMinMaxVal(commandBuffer:MTLCommandBuffer) throws{
                 guard let maxMinCoder = commandBuffer.makeComputeCommandEncoder()else{
                         throw ASError.gpuEncoderErr
                 }
@@ -519,13 +511,29 @@ class VideoCompare: ObservableObject {
                 
                 var totalElements = self.pixelSize
                 maxMinCoder.setBytes(&totalElements, length: MemoryLayout<UInt>.size, index: 2)
+                
                 var totalGroups = self.numGroupsMaxMin!.width
                 maxMinCoder.setBytes(&totalGroups, length: MemoryLayout<UInt>.size, index: 3)
+                
                 var groupSize = self.threadsPerGroupMaxMin.width
                 maxMinCoder.setBytes(&groupSize, length: MemoryLayout<UInt>.size, index: 4)
+               
+                maxMinCoder.setThreadgroupMemoryLength(threadGroupSizeForMaxMin * MemoryLayout<Float>.size, index: 0) // 对于localMin
+                maxMinCoder.setThreadgroupMemoryLength(threadGroupSizeForMaxMin * MemoryLayout<Float>.size, index: 1) // 对于localMax
                 
                 maxMinCoder.dispatchThreadgroups(numGroupsMaxMin!, threadsPerThreadgroup: threadsPerGroupMaxMin)
                 maxMinCoder.endEncoding()
+        }
+        
+        func normalizeFullWtl(commandBuffer:MTLCommandBuffer) throws{
+                
+#if USINGCPUMAX
+                let (min, max) = findMinMax(buffer: self.fullWtlInOneBuffer!, length: self.pixelSize)
+                print("min:\(min) max:\(max)")
+                let pointer = self.maxMinBuffer!.contents().bindMemory(to: Float.self, capacity: 2)
+                pointer[0] = min // 更新最小值
+                pointer[1] = max // 更新最大值
+//#else
 #endif
                 guard let coder = commandBuffer.makeComputeCommandEncoder()else{
                         throw ASError.gpuEncoderErr
