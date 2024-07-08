@@ -466,17 +466,17 @@ kernel void reduceMinMaxKernel(
 
 kernel void normalizeImageFromWtl(
                                   device float* fullMap [[buffer(0)]],
-                                  constant float &minVal [[buffer(1)]],
-                                  constant float &maxVal [[buffer(2)]],
-                                  constant uint &width [[buffer(3)]],
-                                  constant uint &height [[buffer(4)]],
+                                  device float* minMaxVals [[buffer(1)]],
+                                  constant uint &width [[buffer(2)]],
+                                  constant uint &height [[buffer(3)]],
                                   uint2 gid [[thread_position_in_grid]])
 {
         
         if (gid.x >= width || gid.y >= height) {
                 return;
         }
-        
+        float minVal = minMaxVals[0];
+        float maxVal = minMaxVals[1];
         uint index = gid.y * width + gid.x;
         float val = fullMap[index];
         fullMap[index] = (val - minVal) / (maxVal - minVal);

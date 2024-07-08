@@ -36,6 +36,7 @@ class VideoCompare: ObservableObject {
         var wtlPipe: MTLComputePipelineState!
         var biLinearPipe: MTLComputePipelineState!
         var normlizePipe:MTLComputePipelineState!
+        var maxMinPipe:MTLComputePipelineState!
         
         var grayBufferPreB:MTLBuffer?
         var grayBufferCurB:MTLBuffer?
@@ -74,6 +75,10 @@ class VideoCompare: ObservableObject {
                                                       height: 8,
                                                       depth: 1)
         var descriptorThreadGrpNo:[MTLSize?]=[]
+        var maxMinBuffer:MTLBuffer?
+        
+        let threadsPerGroupMaxMin = MTLSize(width: 256, height: 1, depth: 1)
+        var numGroupsMaxMin:MTLSize?
         
         func CompareAction(videoA:URL,videoB:URL)async throws{
                 self.assetA = AVAsset(url: videoA)
@@ -104,7 +109,8 @@ class VideoCompare: ObservableObject {
                       let descriptorFun = library.makeFunction(name: "normalizedDescriptor"),
                       let wtlFun = library.makeFunction(name: "wtlBetweenTwoFrame"),
                       let bilinearFun = library.makeFunction(name: "applyBiLinearInterpolationToFullFrame"),
-                      let normlizeFun  =  library.makeFunction(name: "normalizeImageFromWtl") else{
+                      let normlizeFun  =  library.makeFunction(name: "normalizeImageFromWtl"),
+                      let minMaxFun  =  library.makeFunction(name: "reduceMinMaxKernel") else{
                         throw ASError.shaderLoadErr
                 }
                 
@@ -114,6 +120,7 @@ class VideoCompare: ObservableObject {
                 wtlPipe = try device.makeComputePipelineState(function: wtlFun)
                 biLinearPipe = try device.makeComputePipelineState(function: bilinearFun)
                 normlizePipe = try device.makeComputePipelineState(function: normlizeFun)
+                maxMinPipe =  try device.makeComputePipelineState(function: minMaxFun)
                 
                 avgGradientOfBlockA = Array(repeating: nil, count: 3)
                 avgGradientOfBlockB = Array(repeating: nil, count: 3)
@@ -122,7 +129,6 @@ class VideoCompare: ObservableObject {
                 blockThreadGrpSize = Array(repeating: nil, count: 3)
                 wtlOfAllLevel = Array(repeating: nil, count: 3)
                 fullWtlBuffer = Array(repeating: nil, count: 3)
-                
                 
 #if TmpDescData
                 descriptorPipe = try device.makeComputePipelineState(function: descriptorFun)
@@ -148,6 +154,7 @@ class VideoCompare: ObservableObject {
                         mipmapped: false
                 )
                 textureDescriptor.usage = [.shaderRead, .shaderWrite]
+                self.numGroupsMaxMin = MTLSize(width: (self.pixelSize + 255) / 256, height: 1, depth: 1)
         }
         
         private func prepareFrameBuffer() throws{
@@ -164,7 +171,8 @@ class VideoCompare: ObservableObject {
                       let bufferYB = device.makeBuffer(length: self.pixelSize * MemoryLayout<Int16>.stride, options: .storageModeShared),
                       let pBuffer = device.makeBuffer(bytes: normalizedP, length: MemoryLayout<SIMD3<Float>>.stride * normalizedP.count, options: .storageModeShared),
                       let fwBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<Float>.stride, options: .storageModeShared),
-                      let finalBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<UInt8>.stride, options: .storageModeShared) else{
+                      let finalBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<UInt8>.stride, options: .storageModeShared),
+                      let resultBuffer = device.makeBuffer(length: MemoryLayout<Float>.size * 2, options: .storageModeShared) else{
                         throw ASError.gpuBufferErr
                 }
                 
@@ -183,6 +191,7 @@ class VideoCompare: ObservableObject {
                 self.projectionBuf = pBuffer
                 self.fullWtlInOneBuffer = fwBuffer
                 self.finalImgBuffer = finalBuffer
+                self.maxMinBuffer = resultBuffer
                 
                 pixelThreadGrpNo = MTLSize(width: (self.videoWidth + PixelThreadWidth - 1) / PixelThreadWidth,
                                            height: (self.videoHeight + PixelThreadHeight - 1) / PixelThreadHeight,
@@ -254,6 +263,7 @@ class VideoCompare: ObservableObject {
                 memset(gradientBufferYB?.contents(), 0, self.pixelSize * MemoryLayout<Int16>.stride)
                 memset(fullWtlInOneBuffer?.contents(), 0, self.pixelSize * MemoryLayout<Float>.stride)
                 memset(finalImgBuffer?.contents(), 0, self.pixelSize * MemoryLayout<UInt8>.stride)
+                memset(maxMinBuffer?.contents(), 0, 2 * MemoryLayout<UInt8>.stride)
                 
                 for i in 0..<3{
                         memset(avgGradientOfBlockA[i]?.contents(), 0, numBlockNo[i]   * MemoryLayout<Float>.stride)
@@ -308,11 +318,24 @@ class VideoCompare: ObservableObject {
                                 try self.biLinearInterpolate(commandBuffer: commandBuffer, level: i)
                                 
                         }
+#if USINGCPUMAX
+                        commandBuffer.commit()
+                        commandBuffer.waitUntilCompleted()
+                        saveRawDataToFile(fileName: "gpu_wtl_2_billinear_final_.json", buffer: self.fullWtlInOneBuffer!,
+                                          width: self.videoWidth, height: self.videoHeight,  type: Float.self)
+                        guard let commandBuffer = self.commandQueue.makeCommandBuffer() else{
+                                throw  ASError.gpuBufferErr
+                        }
+#endif
                         try self.normalizeFullWtl(commandBuffer: commandBuffer)
                         
                         commandBuffer.commit()
                         commandBuffer.waitUntilCompleted()
 #if CompareJsonData
+                        let resultPointer = self.maxMinBuffer!.contents().assumingMemoryBound(to: Float.self)
+                        let minVal = resultPointer[0]
+                        let maxVal = resultPointer[1]
+                        print("min max from gpu:min=\(minVal) max=\(maxVal)")
                         self.debugFrameDataToJson(true,counter: counter)
 #endif
                         return false;//true
@@ -478,28 +501,40 @@ class VideoCompare: ObservableObject {
                 coder.endEncoding()
         }
         
-        
-        
         func normalizeFullWtl(commandBuffer:MTLCommandBuffer) throws{
-#if DEBUGTMPWTL
-                saveRawDataToFile(fileName: "gpu_wtl_2_billinear_final_.json", buffer: fullWtlInOneBuffer!,
-                                  width: self.videoWidth, height: self.videoHeight,  type: Float.self)
-#endif
                 
-                var (min, max) = findMinMax(buffer: self.fullWtlInOneBuffer!, length: self.pixelSize)
+#if USINGCPUMAX
+                let (min, max) = findMinMax(buffer: self.fullWtlInOneBuffer!, length: self.pixelSize)
                 print("min:\(min) max:\(max)")
+                let pointer = self.maxMinBuffer!.contents().bindMemory(to: Float.self, capacity: 2)
+                pointer[0] = min // 更新最小值
+                pointer[1] = max // 更新最大值
+#else
+                guard let maxMinCoder = commandBuffer.makeComputeCommandEncoder()else{
+                        throw ASError.gpuEncoderErr
+                }
+                maxMinCoder.setComputePipelineState(self.maxMinPipe)
+                maxMinCoder.setBuffer(self.fullWtlInOneBuffer, offset: 0, index: 0)
+                maxMinCoder.setBuffer(self.maxMinBuffer, offset: 0, index: 1)
+                
+                var totalElements = self.pixelSize
+                maxMinCoder.setBytes(&totalElements, length: MemoryLayout<UInt>.size, index: 2)
+                var totalGroups = self.numGroupsMaxMin!.width
+                maxMinCoder.setBytes(&totalGroups, length: MemoryLayout<UInt>.size, index: 3)
+                var groupSize = self.threadsPerGroupMaxMin.width
+                maxMinCoder.setBytes(&groupSize, length: MemoryLayout<UInt>.size, index: 4)
+                
+                maxMinCoder.dispatchThreadgroups(numGroupsMaxMin!, threadsPerThreadgroup: threadsPerGroupMaxMin)
+                maxMinCoder.endEncoding()
+#endif
                 guard let coder = commandBuffer.makeComputeCommandEncoder()else{
                         throw ASError.gpuEncoderErr
                 }
-                
                 coder.setComputePipelineState(self.normlizePipe)
-                
                 coder.setBuffer(self.fullWtlInOneBuffer, offset: 0, index: 0)
-                coder.setBytes(&min, length: MemoryLayout<Float>.size, index: 1)
-                coder.setBytes(&max, length: MemoryLayout<Float>.size, index: 2)
-                coder.setBytes(&self.videoWidth, length: MemoryLayout<Int>.size, index: 3)
-                coder.setBytes(&self.videoHeight, length: MemoryLayout<Int>.size, index: 4)
-                
+                coder.setBuffer(self.maxMinBuffer, offset: 0, index: 1)
+                coder.setBytes(&self.videoWidth, length: MemoryLayout<Int>.size, index: 2)
+                coder.setBytes(&self.videoHeight, length: MemoryLayout<Int>.size, index: 3)
                 coder.dispatchThreadgroups(pixelThreadGrpNo!,
                                            threadsPerThreadgroup: pixelThreadGrpSize)
                 coder.endEncoding()
