@@ -59,6 +59,7 @@ class VideoCompare: ObservableObject {
         var avgGradientOfBlockA:[MTLBuffer?]=[]
         
         var fullWtlBuffer:[MTLBuffer?]=[]
+        var fullWtlInOneBuffer:MTLBuffer?
         var wtlOfAllLevel:[MTLBuffer?]=[]
         var finalImgBuffer:MTLBuffer?
         var projectionBuf:MTLBuffer?
@@ -162,6 +163,7 @@ class VideoCompare: ObservableObject {
                       let bufferXB = device.makeBuffer(length: self.pixelSize * MemoryLayout<Int16>.stride, options: .storageModeShared),
                       let bufferYB = device.makeBuffer(length: self.pixelSize * MemoryLayout<Int16>.stride, options: .storageModeShared),
                       let pBuffer = device.makeBuffer(bytes: normalizedP, length: MemoryLayout<SIMD3<Float>>.stride * normalizedP.count, options: .storageModeShared),
+                      let fwBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<Float>.stride, options: .storageModeShared),
                       let finalBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<UInt8>.stride, options: .storageModeShared) else{
                         throw ASError.gpuBufferErr
                 }
@@ -179,6 +181,7 @@ class VideoCompare: ObservableObject {
                 self.gradientBufferYB = bufferYB
                 
                 self.projectionBuf = pBuffer
+                self.fullWtlInOneBuffer = fwBuffer
                 self.finalImgBuffer = finalBuffer
                 
                 pixelThreadGrpNo = MTLSize(width: (self.videoWidth + PixelThreadWidth - 1) / PixelThreadWidth,
@@ -249,8 +252,7 @@ class VideoCompare: ObservableObject {
                 memset(gradientBufferTB?.contents(), 0, self.pixelSize * MemoryLayout<UInt8>.stride)
                 memset(gradientBufferXB?.contents(), 0, self.pixelSize * MemoryLayout<Int16>.stride)
                 memset(gradientBufferYB?.contents(), 0, self.pixelSize * MemoryLayout<Int16>.stride)
-                
-                
+                memset(fullWtlInOneBuffer?.contents(), 0, self.pixelSize * MemoryLayout<Float>.stride)
                 memset(finalImgBuffer?.contents(), 0, self.pixelSize * MemoryLayout<UInt8>.stride)
                 
                 for i in 0..<3{
@@ -449,7 +451,7 @@ class VideoCompare: ObservableObject {
                 coder.setComputePipelineState(self.biLinearPipe)
                 
                 coder.setBuffer(self.wtlOfAllLevel[level], offset: 0, index: 0)
-                coder.setBuffer(self.fullWtlBuffer[level], offset: 0, index: 1)
+                coder.setBuffer(self.fullWtlInOneBuffer, offset: 0, index: 1)
                 coder.setBytes(&self.videoWidth, length: MemoryLayout<Int>.size, index: 2)
                 coder.setBytes(&self.videoHeight, length: MemoryLayout<Int>.size, index: 3)
                 var shift =  (SideSizeOfLevelZero << level) / 2
@@ -459,7 +461,13 @@ class VideoCompare: ObservableObject {
                 coder.setBytes(&self.descriptorNumX[level], length: MemoryLayout<Int>.size, index:5)
                 coder.setBytes(&self.descriptorNumY[level], length: MemoryLayout<Int>.size, index:6)
                 coder.setBytes(&shift, length: MemoryLayout<Int>.size, index:7)
-                
+                var levelVar = level
+                coder.setBytes(&levelVar, length: MemoryLayout<Int>.size, index:8)
+#if DEBUGTMPWTL
+                var useTmp = true
+                coder.setBytes(&useTmp, length: MemoryLayout<Bool>.size, index: 9)
+                coder.setBuffer(self.fullWtlBuffer[level], offset: 0, index: 10)
+#endif
                 coder.dispatchThreadgroups(pixelThreadGrpNo!,
                                            threadsPerThreadgroup: pixelThreadGrpSize)
                 coder.endEncoding()
@@ -583,10 +591,13 @@ extension  VideoCompare{
                                           width: self.descriptorNumX[i], height: self.descriptorNumY[i],  type: Float.self)
                         
                         
-                        
+#if DEBUGTMPWTL
                         saveRawDataToFile(fileName: "gpu_wtl_\(counter)_billinear_\(i).json", buffer: fullWtlBuffer[i]!,
                                           width: self.videoWidth, height: self.videoHeight,  type: Float.self)
+#endif
                 }
+                saveRawDataToFile(fileName: "gpu_wtl_\(counter)_billinear_final_.json", buffer: fullWtlInOneBuffer!,
+                                  width: self.videoWidth, height: self.videoHeight,  type: Float.self)
         }
 #endif
 }
