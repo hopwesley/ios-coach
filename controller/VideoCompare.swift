@@ -37,6 +37,8 @@ class VideoCompare: ObservableObject {
         var biLinearPipe: MTLComputePipelineState!
         var normlizePipe:MTLComputePipelineState!
         var maxMinPipe:MTLComputePipelineState!
+        var percentileHistogramPipe:MTLComputePipelineState!
+        var percentilePipe:MTLComputePipelineState!
         
         var grayBufferPreB:MTLBuffer?
         var grayBufferCurB:MTLBuffer?
@@ -75,10 +77,13 @@ class VideoCompare: ObservableObject {
                                                       height: 8,
                                                       depth: 1)
         var descriptorThreadGrpNo:[MTLSize?]=[]
-        var maxMinBuffer:MTLBuffer?
         
         let threadsPerGroupMaxMin = MTLSize(width: threadGroupSizeForMaxMin, height: 1, depth: 1)
         var numGroupsMaxMin:MTLSize?
+        var percentileBuffer:MTLBuffer?
+        var numGrpPercentile:MTLSize?
+        var maxMinBuffer:MTLBuffer?
+        var percentileLowHighBuffer:MTLBuffer?
         
         func CompareAction(videoA:URL,videoB:URL)async throws{
                 self.assetA = AVAsset(url: videoA)
@@ -110,7 +115,9 @@ class VideoCompare: ObservableObject {
                       let wtlFun = library.makeFunction(name: "wtlBetweenTwoFrame"),
                       let bilinearFun = library.makeFunction(name: "applyBiLinearInterpolationToFullFrame"),
                       let normlizeFun  =  library.makeFunction(name: "normalizeImageFromWtl"),
-                      let minMaxFun  =  library.makeFunction(name: "reduceMinMaxKernel") else{
+                      let minMaxFun  =  library.makeFunction(name: "reduceMinMaxKernel"),
+                      let ptHistoFun  =  library.makeFunction(name: "calculateHistogram"),
+                      let percentileFun  =  library.makeFunction(name: "calculatePercentiles") else{
                         throw ASError.shaderLoadErr
                 }
                 
@@ -121,6 +128,8 @@ class VideoCompare: ObservableObject {
                 biLinearPipe = try device.makeComputePipelineState(function: bilinearFun)
                 normlizePipe = try device.makeComputePipelineState(function: normlizeFun)
                 maxMinPipe =  try device.makeComputePipelineState(function: minMaxFun)
+                percentilePipe =  try device.makeComputePipelineState(function: percentileFun)
+                percentileHistogramPipe  =  try device.makeComputePipelineState(function: ptHistoFun)
                 
                 avgGradientOfBlockA = Array(repeating: nil, count: 3)
                 avgGradientOfBlockB = Array(repeating: nil, count: 3)
@@ -153,8 +162,7 @@ class VideoCompare: ObservableObject {
                         mipmapped: false
                 )
                 textureDescriptor.usage = [.shaderRead, .shaderWrite]
-                self.numGroupsMaxMin = MTLSize(width: (self.pixelSize + threadGroupSizeForMaxMin - 1) / threadGroupSizeForMaxMin / 8, height: 1, depth: 1)
-                //                self.numGroupsMaxMin = MTLSize(width: 4, height: 1, depth: 1)
+                
         }
         
         private func prepareFrameBuffer() throws{
@@ -172,8 +180,10 @@ class VideoCompare: ObservableObject {
                       let pBuffer = device.makeBuffer(bytes: normalizedP, length: MemoryLayout<SIMD3<Float>>.stride * normalizedP.count, options: .storageModeShared),
                       let fwBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<Float>.stride, options: .storageModeShared),
                       let finalBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<UInt8>.stride, options: .storageModeShared),
-                      let resultBuffer = device.makeBuffer(length: MemoryLayout<Float>.size * 2, options: .storageModeShared),
-                      let ggBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<Float>.stride, options: .storageModeShared) else{
+                      let maxMinBuffer = device.makeBuffer(length: MemoryLayout<Float>.size * 2, options: .storageModeShared),
+                      let ggBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<Float>.stride, options: .storageModeShared),
+                      let ptBuffer = device.makeBuffer(length: 256 * MemoryLayout<UInt32>.stride, options: .storageModeShared),
+                      let lowHighBuffer = device.makeBuffer(length: MemoryLayout<Float>.size * 2, options: .storageModeShared)  else{
                         throw ASError.gpuBufferErr
                 }
                 
@@ -192,12 +202,17 @@ class VideoCompare: ObservableObject {
                 self.projectionBuf = pBuffer
                 self.fullWtlInOneBuffer = fwBuffer
                 self.finalImgBuffer = finalBuffer
-                self.maxMinBuffer = resultBuffer
+                self.maxMinBuffer = maxMinBuffer
                 self.gradientMagnitude = ggBuffer
+                self.percentileBuffer = ptBuffer
+                self.percentileLowHighBuffer = lowHighBuffer
                 
                 pixelThreadGrpNo = MTLSize(width: (self.videoWidth + PixelThreadWidth - 1) / PixelThreadWidth,
                                            height: (self.videoHeight + PixelThreadHeight - 1) / PixelThreadHeight,
                                            depth: 1)
+                
+                self.numGroupsMaxMin = MTLSize(width: (self.pixelSize + threadGroupSizeForMaxMin - 1) / threadGroupSizeForMaxMin, height: 1, depth: 1)
+                self.numGrpPercentile = MTLSize(width: (self.pixelSize + threadGroupSizeForMaxMin - 1) / threadGroupSizeForMaxMin, height: 1, depth: 1)
         }
         
         private func prepareBlockBuffer(level:Int) throws{
@@ -257,7 +272,6 @@ class VideoCompare: ObservableObject {
                 memset(gradientBufferXA?.contents(), 0, self.pixelSize * MemoryLayout<Int16>.stride)
                 memset(gradientBufferYA?.contents(), 0, self.pixelSize * MemoryLayout<Int16>.stride)
                 
-                
                 memset(grayBufferPreB?.contents(), 0, self.pixelSize * MemoryLayout<UInt8>.stride)
                 memset(grayBufferCurB?.contents(), 0, self.pixelSize * MemoryLayout<UInt8>.stride)
                 memset(gradientBufferTB?.contents(), 0, self.pixelSize * MemoryLayout<UInt8>.stride)
@@ -266,7 +280,11 @@ class VideoCompare: ObservableObject {
                 memset(fullWtlInOneBuffer?.contents(), 0, self.pixelSize * MemoryLayout<Float>.stride)
                 memset(finalImgBuffer?.contents(), 0, self.pixelSize * MemoryLayout<UInt8>.stride)
                 memset(maxMinBuffer?.contents(), 0, 2 * MemoryLayout<UInt8>.stride)
+                
                 memset(gradientMagnitude?.contents(), 0, self.pixelSize * MemoryLayout<Float>.stride)
+                memset(percentileLowHighBuffer?.contents(), 0, 2 * MemoryLayout<UInt8>.stride)
+                memset(percentileBuffer?.contents(), 0, 256 * MemoryLayout<UInt32>.stride)
+                
                 
                 for i in 0..<3{
                         memset(avgGradientOfBlockA[i]?.contents(), 0, numBlockNo[i]   * MemoryLayout<Float>.stride)
@@ -280,6 +298,7 @@ class VideoCompare: ObservableObject {
                 }
         }
         
+     
         private func processVideo() async throws{
                 var counter = 0;
                 
@@ -302,7 +321,6 @@ class VideoCompare: ObservableObject {
                         }
                         
                         self.resetGpuBuffer()
-                        
                         guard let commandBuffer = self.commandQueue.makeCommandBuffer() else{
                                 throw  ASError.gpuBufferErr
                         }
@@ -321,32 +339,42 @@ class VideoCompare: ObservableObject {
                                 try self.biLinearInterpolate(commandBuffer: commandBuffer, level: i)
                                 
                         }
-#if USINGCPUMAX
+
                         commandBuffer.commit()
                         commandBuffer.waitUntilCompleted()
+                        
+                        let (min, max) = findMinMax(buffer: self.fullWtlInOneBuffer!, length: self.pixelSize)
+                        let pointer = self.maxMinBuffer!.contents().bindMemory(to: Float.self, capacity: 2)
+                        pointer[0] = min
+                        pointer[1] = max
+                        
+#if CompareJsonData
                         saveRawDataToFile(fileName: "gpu_wtl_2_billinear_final_.json", buffer: self.fullWtlInOneBuffer!,
                                           width: self.videoWidth, height: self.videoHeight,  type: Float.self)
+                        
+                        print("cpu min:\(min) max:\(max)")
+#endif
                         guard let commandBuffer = self.commandQueue.makeCommandBuffer() else{
                                 throw  ASError.gpuBufferErr
                         }
-                        let (min, max) = findMinMax(buffer: self.fullWtlInOneBuffer!, length: self.pixelSize)
-                        print("cpu min:\(min) max:\(max)")
-                        let pointer = self.maxMinBuffer!.contents().bindMemory(to: Float.self, capacity: 2)
-                        pointer[0] = min // 更新最小值
-                        pointer[1] = max // 更新最大值
-#else
-                        try self.findMinMaxVal(commandBuffer: commandBuffer)
-#endif
                         try self.normalizeFullWtl(commandBuffer: commandBuffer)
+                        
+                        try self.percentileOfFrameA(commandBuffer: commandBuffer)
                         
                         commandBuffer.commit()
                         commandBuffer.waitUntilCompleted()
+                        
 #if CompareJsonData
                         let resultPointer = self.maxMinBuffer!.contents().assumingMemoryBound(to: Float.self)
                         let minVal = resultPointer[0]
                         let maxVal = resultPointer[1]
                         print("min max from gpu:min=\(minVal) max=\(maxVal)")
-                        self.debugFrameDataToJson(true,counter: counter)
+                        
+                        let outputPointer = self.percentileLowHighBuffer?.contents().bindMemory(to: UInt32.self, capacity: 2)
+                        let lowVal = outputPointer?[0] ?? 0
+                        let highVal = outputPointer?[1] ?? 0
+                        print("lowVal or highVal from gpu:lowVal=\(lowVal) max=\(highVal)")
+                        self.debugFrameDataToJson(counter: counter)
 #endif
                         return false;//true
                 }
@@ -395,7 +423,7 @@ class VideoCompare: ObservableObject {
                 var alphaVar = Overlay_Param_Alpha
                 gradeintCoder.setBytes(&alphaVar, length: MemoryLayout<Float>.size, index: 8)
                 gradeintCoder.setBuffer(gradientMagnitude, offset: 0, index: 9)
-               
+                
                 gradeintCoder.dispatchThreadgroups(pixelThreadGrpNo!,
                                                    threadsPerThreadgroup: pixelThreadGrpSize)
                 gradeintCoder.endEncoding()
@@ -493,7 +521,6 @@ class VideoCompare: ObservableObject {
                 coder.setBytes(&self.videoHeight, length: MemoryLayout<Int>.size, index: 3)
                 var shift =  (SideSizeOfLevelZero << level) / 2
                 var descDistanceInPixel = (SideSizeOfLevelZero << level)/DescriptorParam_M/DescriptorParam_m
-                print("shift:\(shift) distance in pixel:\(descDistanceInPixel) numx:\(self.descriptorNumX) numy:\(self.descriptorNumY)")
                 coder.setBytes(&descDistanceInPixel, length: MemoryLayout<Int>.size, index:4)
                 coder.setBytes(&self.descriptorNumX[level], length: MemoryLayout<Int>.size, index:5)
                 coder.setBytes(&self.descriptorNumY[level], length: MemoryLayout<Int>.size, index:6)
@@ -551,6 +578,38 @@ class VideoCompare: ObservableObject {
                 coder.dispatchThreadgroups(pixelThreadGrpNo!,
                                            threadsPerThreadgroup: pixelThreadGrpSize)
                 coder.endEncoding()
+        }
+        
+        func percentileOfFrameA(commandBuffer:MTLCommandBuffer) throws{
+                
+                guard let histoCoder = commandBuffer.makeComputeCommandEncoder()else{
+                        throw ASError.gpuEncoderErr
+                }
+                
+                histoCoder.setComputePipelineState(self.percentileHistogramPipe)
+                histoCoder.setBuffer(self.grayBufferCurA, offset: 0, index: 0)
+                histoCoder.setBuffer(self.percentileBuffer, offset: 0, index: 1)
+                var totalElements = self.pixelSize
+                histoCoder.setBytes(&totalElements, length: MemoryLayout<UInt>.size, index: 2)
+                
+                histoCoder.dispatchThreadgroups(self.numGrpPercentile!, threadsPerThreadgroup: threadsPerGroupMaxMin)
+                histoCoder.endEncoding()
+                
+                guard let percentCoder = commandBuffer.makeComputeCommandEncoder()else{
+                        throw ASError.gpuEncoderErr
+                }
+                percentCoder.setComputePipelineState(self.percentilePipe)
+                percentCoder.setBuffer(self.percentileBuffer, offset: 0, index: 0)
+                percentCoder.setBytes(&totalElements, length: MemoryLayout<UInt>.size, index: 1)
+                
+                var lowPerc = Overlay_Low_Perc
+                var highPerc = Overlay_High_Perc
+                percentCoder.setBytes(&lowPerc, length: MemoryLayout<Float>.size, index: 2)
+                percentCoder.setBytes(&highPerc, length: MemoryLayout<Float>.size, index: 3)
+                percentCoder.setBuffer(self.percentileLowHighBuffer, offset: 0, index: 4)
+                
+                percentCoder.dispatchThreadgroups(MTLSize(width: 1, height: 1, depth: 1), threadsPerThreadgroup: MTLSize(width: 1, height: 1, depth: 1))
+                percentCoder.endEncoding()
         }
 }
 
@@ -616,13 +675,13 @@ extension  VideoCompare{
         }
         
 #if CompareJsonData
-        private func debugFrameDataToJson(_ debug:Bool = false, counter:Int){
-                guard debug else{
-                        return
-                }
+        private func debugFrameDataToJson(counter:Int){
+                
                 
                 saveRawDataToFile(fileName: "gpu_gradient_magnitude_\(counter)_.json", buffer: gradientMagnitude!,
                                   width: self.videoWidth, height: self.videoHeight,  type: Float.self)
+                
+                saveRawDataToFile(fileName: "gpu_percentile_\(counter)_histogram_.json", buffer: self.percentileBuffer!, width: 256, height: 1, type: UInt32.self)
                 
                 for i in 0..<3{
                         

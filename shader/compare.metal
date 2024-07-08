@@ -493,3 +493,56 @@ kernel void normalizeImageFromWtl(
         float val = fullMap[index];
         fullMap[index] = (val - minVal) / (maxVal - minVal);
 }
+
+kernel void calculateHistogram(
+                               device const uchar* image [[buffer(0)]],
+                               device atomic_uint* histogram [[buffer(1)]],
+                               constant uint& pixelSize [[buffer(2)]],
+                               uint gid [[thread_position_in_grid]]
+                               )
+{
+        if (gid >= pixelSize) {
+                return;
+        }
+        uint8_t pixelValue = image[gid];
+        atomic_fetch_add_explicit(&histogram[pixelValue], 1, memory_order_relaxed);
+        
+}
+
+
+kernel void calculatePercentiles(
+                                 device uint* histogram [[buffer(0)]],
+                                 constant uint& pixelSize [[buffer(1)]],
+                                 constant float& lowPerc [[buffer(2)]],
+                                 constant float& highPerc [[buffer(3)]],
+                                 device uint* output [[buffer(4)]],
+                                 uint gid [[thread_position_in_grid]]
+                                 )
+{
+        if (gid != 0) {
+                return;
+        }
+        
+        uint totalPixels = pixelSize;
+        uint lowCount = uint(float(totalPixels) * lowPerc / 100.0);
+        uint highCount = uint(float(totalPixels) * highPerc / 100.0);
+        
+        uint cumulative = 0;
+        uint lowVal = 0;
+        uint highVal = 255;
+        
+        for (uint i = 0; i < 256; ++i) {
+                
+                cumulative += histogram[i];
+                if (cumulative <= lowCount) {
+                        lowVal = i;
+                }
+                
+                if (cumulative <= highCount) {
+                        highVal = i;
+                }
+        }
+        
+        output[0] = lowVal;
+        output[1] = highVal;
+}
