@@ -595,6 +595,7 @@ class VideoCompare: ObservableObject {
                 histoCoder.dispatchThreadgroups(self.numGrpPercentile!, threadsPerThreadgroup: threadsPerGroupMaxMin)
                 histoCoder.endEncoding()
                 
+                
                 guard let percentCoder = commandBuffer.makeComputeCommandEncoder()else{
                         throw ASError.gpuEncoderErr
                 }
