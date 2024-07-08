@@ -99,6 +99,7 @@ kernel void  grayAndTimeDiffTwoFrame(texture2d<float, access::read> preTexture [
                                      device uchar* preGrayBufferB [[buffer(3)]],
                                      device uchar* grayBufferB [[buffer(4)]],
                                      device uchar* outGradientTB [[buffer(5)]],
+                                     device atomic_uint* histogram [[buffer(6)]],
                                      uint2 gid [[thread_position_in_grid]])
 {
         uint width = texture.get_width();
@@ -108,6 +109,10 @@ kernel void  grayAndTimeDiffTwoFrame(texture2d<float, access::read> preTexture [
         }
         grayAndTimeDiff(preTexture,texture,preGrayBuffer,grayBuffer,outGradientT,width, height,gid);
         grayAndTimeDiff(preTextureB,textureB,preGrayBufferB,grayBufferB,outGradientTB,width, height,gid);
+        
+        uint index = gid.y * width + gid.x;
+        uint8_t pixelValue = grayBuffer[index];
+        atomic_fetch_add_explicit(&histogram[pixelValue], 1, memory_order_relaxed);
 }
 
 
@@ -506,7 +511,6 @@ kernel void calculateHistogram(
         }
         uint8_t pixelValue = image[gid];
         atomic_fetch_add_explicit(&histogram[pixelValue], 1, memory_order_relaxed);
-        
 }
 
 
@@ -545,4 +549,36 @@ kernel void calculatePercentiles(
         
         output[0] = lowVal;
         output[1] = highVal;
+}
+
+
+kernel void adjustContrastAndMap(
+                                 device const uchar* image [[buffer(0)]],
+                                 device float* mappedFrame [[buffer(1)]],
+                                 constant uint* percentiles [[buffer(2)]], // 合并的数组
+                                 constant float& betaLow [[buffer(3)]],
+                                 constant float& betaHigh [[buffer(4)]],
+                                 constant uint& pixelSize [[buffer(5)]],
+                                 uint gid [[thread_position_in_grid]]
+                                 )
+{
+        if (gid >= pixelSize) {
+                return;
+        }
+        
+        uchar val = image[gid];
+        float fVal = float(val);
+        float result = 0.0;
+        uint I_low = percentiles[0];
+        uint I_high = percentiles[1];
+        
+        if (fVal < float(I_low)) {
+                result = betaLow;
+        } else if (fVal > float(I_high)) {
+                result = betaHigh;
+        } else {
+                result = betaLow + (betaHigh - betaLow) * (fVal - float(I_low)) / (float(I_high) - float(I_low));
+        }
+        
+        mappedFrame[gid] = result;
 }
