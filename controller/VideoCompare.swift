@@ -224,7 +224,7 @@ class VideoCompare: ObservableObject {
                 guard let descriptorA = device.makeBuffer(length: self.descriptorNo[level]  * DescriptorSize * MemoryLayout<Float>.stride, options: .storageModeShared),
                       let descriptorB = device.makeBuffer(length: self.descriptorNo[level]  * DescriptorSize * MemoryLayout<Float>.stride, options: .storageModeShared),
                       let wtl = device.makeBuffer(length: self.descriptorNo[level] * MemoryLayout<Float>.stride, options: .storageModeShared),
-                        let fwBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<Float>.stride, options: .storageModeShared) else{
+                      let fwBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<Float>.stride, options: .storageModeShared) else{
                         throw ASError.gpuBufferErr
                 }
                 
@@ -306,7 +306,7 @@ class VideoCompare: ObservableObject {
                                 try self.biLinearInterpolate(commandBuffer: commandBuffer, level: i)
                                 
                         }
-//                        try self.normalizeFullWtl(commandBuffer: commandBuffer)
+                        //                        try self.normalizeFullWtl(commandBuffer: commandBuffer)
                         
                         commandBuffer.commit()
                         commandBuffer.waitUntilCompleted()
@@ -454,9 +454,10 @@ class VideoCompare: ObservableObject {
                 coder.setBytes(&self.videoHeight, length: MemoryLayout<Int>.size, index: 3)
                 var shift =  (SideSizeOfLevelZero << level) / 2
                 var descDistanceInPixel = (SideSizeOfLevelZero << level)/DescriptorParam_M/DescriptorParam_m
+                print("shift:\(shift) distance in pixel:\(descDistanceInPixel) numx:\(self.descriptorNumX) numy:\(self.descriptorNumY)")
                 coder.setBytes(&descDistanceInPixel, length: MemoryLayout<Int>.size, index:4)
-                coder.setBytes(&self.descriptorNumX, length: MemoryLayout<Int>.size, index:5)
-                coder.setBytes(&self.descriptorNumY, length: MemoryLayout<Int>.size, index:6)
+                coder.setBytes(&self.descriptorNumX[level], length: MemoryLayout<Int>.size, index:5)
+                coder.setBytes(&self.descriptorNumY[level], length: MemoryLayout<Int>.size, index:6)
                 coder.setBytes(&shift, length: MemoryLayout<Int>.size, index:7)
                 
                 coder.dispatchThreadgroups(pixelThreadGrpNo!,
@@ -466,26 +467,26 @@ class VideoCompare: ObservableObject {
         
         
         
-//        func normalizeFullWtl(commandBuffer:MTLCommandBuffer) throws{
-//                
-//                var (min, max) = findMinMax(buffer: self.fullWtlBuffer!, length: self.pixelSize)
-//                print("min:\(min) max:\(max)")
-//                guard let coder = commandBuffer.makeComputeCommandEncoder()else{
-//                        throw ASError.gpuEncoderErr
-//                }
-//                
-//                coder.setComputePipelineState(self.normlizePipe)
-//                
-//                coder.setBuffer(self.fullWtlBuffer, offset: 0, index: 0)
-//                coder.setBytes(&min, length: MemoryLayout<Float>.size, index: 1)
-//                coder.setBytes(&max, length: MemoryLayout<Float>.size, index: 2)
-//                coder.setBytes(&self.videoWidth, length: MemoryLayout<Int>.size, index: 3)
-//                coder.setBytes(&self.videoHeight, length: MemoryLayout<Int>.size, index: 4)
-//                
-//                coder.dispatchThreadgroups(pixelThreadGrpNo!,
-//                                           threadsPerThreadgroup: pixelThreadGrpSize)
-//                coder.endEncoding()
-//        }
+        //        func normalizeFullWtl(commandBuffer:MTLCommandBuffer) throws{
+        //
+        //                var (min, max) = findMinMax(buffer: self.fullWtlBuffer!, length: self.pixelSize)
+        //                print("min:\(min) max:\(max)")
+        //                guard let coder = commandBuffer.makeComputeCommandEncoder()else{
+        //                        throw ASError.gpuEncoderErr
+        //                }
+        //
+        //                coder.setComputePipelineState(self.normlizePipe)
+        //
+        //                coder.setBuffer(self.fullWtlBuffer, offset: 0, index: 0)
+        //                coder.setBytes(&min, length: MemoryLayout<Float>.size, index: 1)
+        //                coder.setBytes(&max, length: MemoryLayout<Float>.size, index: 2)
+        //                coder.setBytes(&self.videoWidth, length: MemoryLayout<Int>.size, index: 3)
+        //                coder.setBytes(&self.videoHeight, length: MemoryLayout<Int>.size, index: 4)
+        //
+        //                coder.dispatchThreadgroups(pixelThreadGrpNo!,
+        //                                           threadsPerThreadgroup: pixelThreadGrpSize)
+        //                coder.endEncoding()
+        //        }
 }
 
 

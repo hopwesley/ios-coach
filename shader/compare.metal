@@ -377,14 +377,13 @@ kernel void applyBiLinearInterpolationToFullFrame(device const float* wtl [[buff
                                                   constant uint &descNumY [[buffer(6)]],
                                                   constant uint &shift [[buffer(7)]],
                                                   uint2 gid [[thread_position_in_grid]]) {
-        if (gid.x >= width || gid.y >= height) {
+        if (gid.x < shift || gid.y < shift || gid.x >= width-shift || gid.y >= height-shift) {
                 return;
         }
         
-        uint col = gid.x / descriptorDistance;
-        uint row = gid.y / descriptorDistance;
-        
-        if (gid.x < shift || gid.y < shift || row >= descNumY - 1 || col >= descNumX - 1) {
+        uint col = (gid.x - shift) / descriptorDistance;
+        uint row = (gid.y - shift) / descriptorDistance;
+        if (row >= descNumY-1 || col >=descNumX - 1){
                 return;
         }
         
@@ -393,7 +392,6 @@ kernel void applyBiLinearInterpolationToFullFrame(device const float* wtl [[buff
         uint y1 = row * descriptorDistance + shift;
         uint y2 = (row + 1) * descriptorDistance + shift;
         
-        // 确保索引在有效范围内
         if (x2 >= width || y2 >= height) {
                 return;
         }
@@ -409,9 +407,8 @@ kernel void applyBiLinearInterpolationToFullFrame(device const float* wtl [[buff
         float denom = descriptorDistance * descriptorDistance;
         float intermed = q11 * (x2 - x) * (y2 - y) + q21 * (x - x1) * (y2 - y) +
         q12 * (x2 - x) * (y - y1) + q22 * (x - x1) * (y - y1);
-        fullMap[gid.y * width + gid.x] = intermed / denom;
         
-//         = biLinearInterpolate(q11, q12, q21, q22, float(x1), float(x2), float(y1), float(y2), x, y);
+        fullMap[gid.y * width + gid.x] = intermed / denom;
 }
 
 
