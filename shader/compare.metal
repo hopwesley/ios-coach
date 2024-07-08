@@ -421,6 +421,49 @@ kernel void applyBiLinearInterpolationToFullFrame(device const float* wtl [[buff
 }
 
 
+kernel void reduceMinMaxKernel(
+                               device const float* data [[buffer(0)]],
+                               device float* results [[buffer(1)]], // Store final min and max
+                               constant uint& numElements [[buffer(2)]],
+                               constant uint& numThreadGroups [[buffer(3)]],
+                               constant uint& threadGroupSize [[buffer(4)]],
+                               uint threadgroup_id [[threadgroup_position_in_grid]],
+                               uint thread_position [[thread_position_in_threadgroup]],
+                               threadgroup float* localMin,
+                               threadgroup float* localMax)
+{
+        
+        uint index = threadgroup_id * threadGroupSize + thread_position;
+        float localMinValue = FLT_MAX;
+        float localMaxValue = -FLT_MAX;
+        
+        while (index < numElements) {
+                float value = data[index];
+                localMinValue = min(localMinValue, value);
+                localMaxValue = max(localMaxValue, value);
+                index += numThreadGroups * threadGroupSize; // Correctly increment index across the entire grid
+        }
+        
+        localMin[thread_position] = localMinValue;
+        localMax[thread_position] = localMaxValue;
+        
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        
+        // Reduce within the threadgroup
+        for (uint stride = threadGroupSize / 2; stride > 0; stride >>= 1) {
+                if (thread_position < stride) {
+                        localMin[thread_position] = min(localMin[thread_position], localMin[thread_position + stride]);
+                        localMax[thread_position] = max(localMax[thread_position], localMax[thread_position + stride]);
+                }
+                threadgroup_barrier(mem_flags::mem_threadgroup);
+        }
+        
+        if (thread_position == 0) {
+                results[threadgroup_id * 2] = localMin[0];
+                results[threadgroup_id * 2 + 1] = localMax[0];
+        }
+}
+
 kernel void normalizeImageFromWtl(
                                   device float* fullMap [[buffer(0)]],
                                   constant float &minVal [[buffer(1)]],

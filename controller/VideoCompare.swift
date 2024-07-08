@@ -308,7 +308,7 @@ class VideoCompare: ObservableObject {
                                 try self.biLinearInterpolate(commandBuffer: commandBuffer, level: i)
                                 
                         }
-                        //                        try self.normalizeFullWtl(commandBuffer: commandBuffer)
+                        try self.normalizeFullWtl(commandBuffer: commandBuffer)
                         
                         commandBuffer.commit()
                         commandBuffer.waitUntilCompleted()
@@ -463,8 +463,13 @@ class VideoCompare: ObservableObject {
                 coder.setBytes(&shift, length: MemoryLayout<Int>.size, index:7)
                 var levelVar = level
                 coder.setBytes(&levelVar, length: MemoryLayout<Int>.size, index:8)
-#if DEBUGTMPWTL
                 var useTmp = true
+#if DEBUGTMPWTL
+                useTmp = true
+                coder.setBytes(&useTmp, length: MemoryLayout<Bool>.size, index: 9)
+                coder.setBuffer(self.fullWtlBuffer[level], offset: 0, index: 10)
+#else
+                useTmp = false
                 coder.setBytes(&useTmp, length: MemoryLayout<Bool>.size, index: 9)
                 coder.setBuffer(self.fullWtlBuffer[level], offset: 0, index: 10)
 #endif
@@ -475,26 +480,30 @@ class VideoCompare: ObservableObject {
         
         
         
-        //        func normalizeFullWtl(commandBuffer:MTLCommandBuffer) throws{
-        //
-        //                var (min, max) = findMinMax(buffer: self.fullWtlBuffer!, length: self.pixelSize)
-        //                print("min:\(min) max:\(max)")
-        //                guard let coder = commandBuffer.makeComputeCommandEncoder()else{
-        //                        throw ASError.gpuEncoderErr
-        //                }
-        //
-        //                coder.setComputePipelineState(self.normlizePipe)
-        //
-        //                coder.setBuffer(self.fullWtlBuffer, offset: 0, index: 0)
-        //                coder.setBytes(&min, length: MemoryLayout<Float>.size, index: 1)
-        //                coder.setBytes(&max, length: MemoryLayout<Float>.size, index: 2)
-        //                coder.setBytes(&self.videoWidth, length: MemoryLayout<Int>.size, index: 3)
-        //                coder.setBytes(&self.videoHeight, length: MemoryLayout<Int>.size, index: 4)
-        //
-        //                coder.dispatchThreadgroups(pixelThreadGrpNo!,
-        //                                           threadsPerThreadgroup: pixelThreadGrpSize)
-        //                coder.endEncoding()
-        //        }
+        func normalizeFullWtl(commandBuffer:MTLCommandBuffer) throws{
+#if DEBUGTMPWTL
+                saveRawDataToFile(fileName: "gpu_wtl_2_billinear_final_.json", buffer: fullWtlInOneBuffer!,
+                                  width: self.videoWidth, height: self.videoHeight,  type: Float.self)
+#endif
+                
+                var (min, max) = findMinMax(buffer: self.fullWtlInOneBuffer!, length: self.pixelSize)
+                print("min:\(min) max:\(max)")
+                guard let coder = commandBuffer.makeComputeCommandEncoder()else{
+                        throw ASError.gpuEncoderErr
+                }
+                
+                coder.setComputePipelineState(self.normlizePipe)
+                
+                coder.setBuffer(self.fullWtlInOneBuffer, offset: 0, index: 0)
+                coder.setBytes(&min, length: MemoryLayout<Float>.size, index: 1)
+                coder.setBytes(&max, length: MemoryLayout<Float>.size, index: 2)
+                coder.setBytes(&self.videoWidth, length: MemoryLayout<Int>.size, index: 3)
+                coder.setBytes(&self.videoHeight, length: MemoryLayout<Int>.size, index: 4)
+                
+                coder.dispatchThreadgroups(pixelThreadGrpNo!,
+                                           threadsPerThreadgroup: pixelThreadGrpSize)
+                coder.endEncoding()
+        }
 }
 
 
@@ -596,7 +605,8 @@ extension  VideoCompare{
                                           width: self.videoWidth, height: self.videoHeight,  type: Float.self)
 #endif
                 }
-                saveRawDataToFile(fileName: "gpu_wtl_\(counter)_billinear_final_.json", buffer: fullWtlInOneBuffer!,
+                
+                saveRawDataToFile(fileName: "gpu_wtl_\(counter)_billinear_final_normalized_.json", buffer: fullWtlInOneBuffer!,
                                   width: self.videoWidth, height: self.videoHeight,  type: Float.self)
         }
 #endif
