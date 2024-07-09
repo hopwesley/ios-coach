@@ -11,9 +11,11 @@ struct CompareView: View {
         var alignTime: Double?
         @State var compareTime: Double? = nil
         @State private var isImageFullScreen = false // 状态变量，用于管理图片的显示状态
+        @State private var showFullScreenVideo = false // 控制全屏视频视图的显示
         
         @State private var playerA: AVPlayer = AVPlayer()
         @State private var playerB: AVPlayer = AVPlayer()
+        @State private var fullScreenVideoURL: URL? // 存储要全屏播放的视频URL
         
         var body: some View {
                 ZStack {
@@ -50,7 +52,7 @@ struct CompareView: View {
                                                 Image(uiImage: tmpFrameImg)
                                                         .resizable()
                                                         .aspectRatio(contentMode: .fit)
-                                                        .frame(height: 200)
+                                                        .frame(height: 400)
                                                         .background(Color.black)
                                                         .onTapGesture {
                                                                 withAnimation {
@@ -62,7 +64,10 @@ struct CompareView: View {
                                         if let comparedUrl = compareror.comparedUrl {
                                                 VideoPlayer(player: AVPlayer(url: comparedUrl))
                                                         .frame(height: 200)
-                                                        .background(Color.black)
+                                                        .background(Color.black).onTapGesture {
+                                                                self.fullScreenVideoURL = comparedUrl
+                                                                self.showFullScreenVideo = true
+                                                        }
                                         }
                                 }
                                 .padding(20) // Add padding around the entire content
@@ -105,10 +110,18 @@ struct CompareView: View {
                                 .background(Color.black.opacity(0.9).edgesIgnoringSafeArea(.all))
                                 .zIndex(2)
                         }
+                        if showFullScreenVideo, let fullScreenVideoURL = fullScreenVideoURL {
+                                FullScreenVideoView(url: fullScreenVideoURL)
+                        }
                 }
                 .disabled(isProcessing)
                 .onAppear {
                         updatePlayers()
+                }
+                .sheet(isPresented: $showFullScreenVideo) {
+                        if let fullScreenVideoURL = fullScreenVideoURL {
+                                FullScreenVideoView(url: fullScreenVideoURL)
+                        }
                 }
         }
         func updatePlayers() {
@@ -150,4 +163,29 @@ struct CompareView: View {
 
 #Preview {
         CompareView()
+}
+
+struct FullScreenVideoView: View {
+    var url: URL
+    @Environment(\.presentationMode) var presentationMode
+    @State private var player: AVPlayer // 使用状态变量来管理播放器
+
+    init(url: URL) {
+        self.url = url
+        _player = State(initialValue: AVPlayer(url: url)) // 初始化播放器并设置视频URL
+    }
+
+    var body: some View {
+        VideoPlayer(player: player)
+            .onAppear {
+                player.play() // 视图出现时开始播放
+            }
+            .onDisappear {
+                player.pause() // 视图消失时暂停播放，避免在后台继续播放
+            }
+            .edgesIgnoringSafeArea(.all)
+            .onTapGesture {
+                presentationMode.wrappedValue.dismiss() // 点击后退出全屏
+            }
+    }
 }
