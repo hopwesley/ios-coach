@@ -11,6 +11,8 @@ import CoreImage
 import UIKit
 
 class VideoCompare: ObservableObject {
+        
+        //MARK: -- variables
         @Published var processingMessage: String = "开始处理..."
         @Published var tmpImg: UIImage?
         @Published var comparedUrl: URL?
@@ -95,7 +97,7 @@ class VideoCompare: ObservableObject {
         var adjustMapBuffer:MTLBuffer?
         var tmpFrameImg:UIImage?
         
-        
+        //MARK: -- main cation
         func CompareAction(videoA:URL,videoB:URL)async throws{
                 self.assetA = AVAsset(url: videoA)
                 self.assetB = AVAsset(url: videoB)
@@ -104,9 +106,9 @@ class VideoCompare: ObservableObject {
                 try initGpuDevice()
                 try await self.prepareVideoParam()
                 try await  self.parseVideoDiffToTexture()
-//                try  self.createVideoFromTextures()
+                try  self.createVideoFromTextures()
         }
-        
+        //MARK: -- gpu init
         func initGpuDevice() throws{
                 guard let d =  MTLCreateSystemDefaultDevice() else{
                         throw ASError.gpuBufferErr
@@ -329,7 +331,7 @@ class VideoCompare: ObservableObject {
                 try await iterateVideoFrame(){frameA, frameB, outputTexture in
                         
                         counter+=1
-                        self.logProcessInfo("处理第\(counter)帧")
+                        self.logProcessInfo("解析第\(counter)帧")
                         if preFrameA == nil{
                                 preFrameA = frameA
                                 preFrameB = frameB
@@ -395,11 +397,12 @@ class VideoCompare: ObservableObject {
                         print("lowVal or highVal from gpu:lowVal=\(lowVal) max=\(highVal)")
                         self.debugFrameDataToJson(counter: counter)
 #endif
-                       try self.textureToImg(outTexture: outputTexture)
-                        return false
+                        
+                        //                        try self.textureToImg(outTexture: outputTexture)
+                        return true
                 }
         }
-        
+        //MARK: -- gpu shader calll
         func pixelGradient(preFrame:MTLTexture, curFrame:MTLTexture, preFrameB:MTLTexture, curFrameB:MTLTexture,commandBuffer:MTLCommandBuffer) throws{
                 
                 guard let grayCoder = commandBuffer.makeComputeCommandEncoder()else{
@@ -665,7 +668,7 @@ class VideoCompare: ObservableObject {
         }
 }
 
-
+//MARK: -- util functions
 extension  VideoCompare{
         
         private func pixelBufferToTexture(_ sbuf: CMSampleBuffer)->MTLTexture?{
@@ -722,10 +725,9 @@ extension  VideoCompare{
                                 }
                         }
                         
-//                        self.textureQueue.async(flags: .barrier) {
-//                                self.textureBuffer.append(frameA)
-//                        }
-//                        try textureToImg(outTexture: outTexture)
+                        self.textureQueue.async(flags: .barrier) {
+                                self.textureBuffer.append(frameA)
+                        }
                 }
                 readerA.cancelReading()
                 readerB.cancelReading()
@@ -911,7 +913,7 @@ extension  VideoCompare{
                                         let presentationTime = CMTime(value: CMTimeValue(frameCount), timescale: 30) // Assuming 30fps
                                         if !pixelBufferAdaptor.append(pixelBuffer, withPresentationTime: presentationTime) {
                                                 self.logProcessInfo("Failed to append pixel buffer at frame \(frameCount)")
-                                                 break
+                                                break
                                         }
                                         frameCount += 1
                                 } else {

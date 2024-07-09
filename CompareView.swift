@@ -12,6 +12,9 @@ struct CompareView: View {
         @State var compareTime: Double? = nil
         @State private var isImageFullScreen = false // 状态变量，用于管理图片的显示状态
         
+        @State private var playerA: AVPlayer = AVPlayer()
+        @State private var playerB: AVPlayer = AVPlayer()
+        
         var body: some View {
                 ZStack {
                         ScrollView {
@@ -20,30 +23,25 @@ struct CompareView: View {
                                                 Text("对齐时间: \(time, specifier: "%.2f") 秒")
                                                         .padding(.top, 20)
                                         }
-                                        
-                                        if let urlA = urlA, let urlB = urlB {
-                                                HStack(spacing: 20) {
-                                                        VideoPlayer(player: AVPlayer(url: urlA))
-                                                                .frame(height: 200)
-                                                                .background(Color.black)
-                                                        
-                                                        VideoPlayer(player: AVPlayer(url: urlB))
-                                                                .frame(height: 200)
-                                                                .background(Color.black)
-                                                }
+                                        HStack(spacing: 20) {
+                                                VideoPlayer(player: playerA)
+                                                        .frame(height: 200)
+                                                        .background(Color.black)
                                                 
-                                                Button(action: {
-                                                        compareVideo()
-                                                }) {
-                                                        Text("对比视频")
-                                                                .frame(width: 160, height: 80) // Adjust button size
-                                                                .background(Color.gray)
-                                                                .foregroundColor(.white)
-                                                                .cornerRadius(10)
-                                                }
-                                                .padding(.top, 20)
+                                                VideoPlayer(player: playerB)
+                                                        .frame(height: 200)
+                                                        .background(Color.black)
                                         }
-                                        
+                                        Button(action: {
+                                                compareVideo()
+                                        }) {
+                                                Text("对比视频")
+                                                        .frame(width: 160, height: 80) // Adjust button size
+                                                        .background(Color.gray)
+                                                        .foregroundColor(.white)
+                                                        .cornerRadius(10)
+                                        }
+                                        .padding(.top, 20)
                                         if let cTime = compareTime {
                                                 Text("对比时间: \(cTime, specifier: "%.2f") 秒")
                                         }
@@ -108,9 +106,19 @@ struct CompareView: View {
                                 .zIndex(2)
                         }
                 }
-                .disabled(isProcessing) // Disable all interactions when processing
+                .disabled(isProcessing)
+                .onAppear {
+                        updatePlayers()
+                }
         }
-        
+        func updatePlayers() {
+                if let urlA = urlA {
+                        playerA.replaceCurrentItem(with: AVPlayerItem(url: urlA))
+                }
+                if let urlB = urlB {
+                        playerB.replaceCurrentItem(with: AVPlayerItem(url: urlB))
+                }
+        }
         func compareVideo() {
                 guard let aUrl = urlA, let bUrl = urlB else {
                         print("video invalid!")
