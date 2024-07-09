@@ -92,7 +92,7 @@
 		69B446E92C29469100412367 /* VideoAlignment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoAlignment.swift; sourceTree = "<group>"; };
 		69B711A82C10743600C85DFF /* GrayscaleShader.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = GrayscaleShader.metal; sourceTree = "<group>"; };
 		69B711AA2C10746200C85DFF /* MetalView_test2_3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView_test2_3.swift; sourceTree = "<group>"; };
-		69D9CF892C0C1FB90001AE0C /* SportsCoach.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SportsCoach.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		69D9CF892C0C1FB90001AE0C /* Efficiency Lab.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Efficiency Lab.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		69D9CF8C2C0C1FB90001AE0C /* SportsCoachApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsCoachApp.swift; sourceTree = "<group>"; };
 		69D9CF8E2C0C1FB90001AE0C /* ContentView_2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView_2.swift; sourceTree = "<group>"; };
 		69D9CF902C0C1FB90001AE0C /* Item.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Item.swift; sourceTree = "<group>"; };
@@ -166,6 +166,8 @@
 		69D9CF802C0C1FB90001AE0C = {
 			isa = PBXGroup;
 			children = (
+				69D9CF922C0C1FBB0001AE0C /* Assets.xcassets */,
+				69D9CF942C0C1FBB0001AE0C /* Preview Content */,
 				698098CE2C25024200AAE9BC /* model */,
 				69EA2E3C2C242F7A00C60FA3 /* view */,
 				69EA2E3B2C242F6A00C60FA3 /* controller */,
@@ -187,7 +189,7 @@
 		69D9CF8A2C0C1FB90001AE0C /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				69D9CF892C0C1FB90001AE0C /* SportsCoach.app */,
+				69D9CF892C0C1FB90001AE0C /* Efficiency Lab.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -198,8 +200,6 @@
 				69D9CFA32C0C75290001AE0C /* Shaders.metal */,
 				69D9CF9C2C0C202A0001AE0C /* MetalView_test1.swift */,
 				69D9CF902C0C1FB90001AE0C /* Item.swift */,
-				69D9CF922C0C1FBB0001AE0C /* Assets.xcassets */,
-				69D9CF942C0C1FBB0001AE0C /* Preview Content */,
 			);
 			path = SportsCoach_test1;
 			sourceTree = "<group>";
@@ -262,9 +262,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		69D9CF882C0C1FB90001AE0C /* SportsCoach */ = {
+		69D9CF882C0C1FB90001AE0C /* Efficiency Lab */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 69D9CF992C0C1FBB0001AE0C /* Build configuration list for PBXNativeTarget "SportsCoach" */;
+			buildConfigurationList = 69D9CF992C0C1FBB0001AE0C /* Build configuration list for PBXNativeTarget "Efficiency Lab" */;
 			buildPhases = (
 				69D9CF852C0C1FB90001AE0C /* Sources */,
 				69D9CF862C0C1FB90001AE0C /* Frameworks */,
@@ -274,9 +274,9 @@
 			);
 			dependencies = (
 			);
-			name = SportsCoach;
+			name = "Efficiency Lab";
 			productName = SportsCoach;
-			productReference = 69D9CF892C0C1FB90001AE0C /* SportsCoach.app */;
+			productReference = 69D9CF892C0C1FB90001AE0C /* Efficiency Lab.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -294,7 +294,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 69D9CF842C0C1FB90001AE0C /* Build configuration list for PBXProject "SportsCoach" */;
+			buildConfigurationList = 69D9CF842C0C1FB90001AE0C /* Build configuration list for PBXProject "Efficiency Lab" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -307,7 +307,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				69D9CF882C0C1FB90001AE0C /* SportsCoach */,
+				69D9CF882C0C1FB90001AE0C /* Efficiency Lab */,
 			);
 		};
 /* End PBXProject section */
@@ -507,6 +507,7 @@
 				DEVELOPMENT_TEAM = 2XYK8RBB6M;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Efficiency Lab";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSCameraUsageDescription = "需要访问相机进行图像处理";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "需要访问照片库进行图像处理";
@@ -543,6 +544,7 @@
 				DEVELOPMENT_TEAM = 2XYK8RBB6M;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Efficiency Lab";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSCameraUsageDescription = "需要访问相机进行图像处理";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "需要访问照片库进行图像处理";
@@ -569,7 +571,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		69D9CF842C0C1FB90001AE0C /* Build configuration list for PBXProject "SportsCoach" */ = {
+		69D9CF842C0C1FB90001AE0C /* Build configuration list for PBXProject "Efficiency Lab" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				69D9CF972C0C1FBB0001AE0C /* Debug */,
@@ -578,7 +580,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		69D9CF992C0C1FBB0001AE0C /* Build configuration list for PBXNativeTarget "SportsCoach" */ = {
+		69D9CF992C0C1FBB0001AE0C /* Build configuration list for PBXNativeTarget "Efficiency Lab" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				69D9CF9A2C0C1FBB0001AE0C /* Debug */,

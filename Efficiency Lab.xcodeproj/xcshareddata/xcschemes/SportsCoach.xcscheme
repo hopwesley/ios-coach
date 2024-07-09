@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "69D9CF882C0C1FB90001AE0C"
-               BuildableName = "SportsCoach.app"
-               BlueprintName = "SportsCoach"
-               ReferencedContainer = "container:SportsCoach.xcodeproj">
+               BuildableName = "Efficiency Lab.app"
+               BlueprintName = "Efficiency Lab"
+               ReferencedContainer = "container:Efficiency Lab.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -45,9 +45,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "69D9CF882C0C1FB90001AE0C"
-            BuildableName = "SportsCoach.app"
-            BlueprintName = "SportsCoach"
-            ReferencedContainer = "container:SportsCoach.xcodeproj">
+            BuildableName = "Efficiency Lab.app"
+            BlueprintName = "Efficiency Lab"
+            ReferencedContainer = "container:Efficiency Lab.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -62,9 +62,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "69D9CF882C0C1FB90001AE0C"
-            BuildableName = "SportsCoach.app"
-            BlueprintName = "SportsCoach"
-            ReferencedContainer = "container:SportsCoach.xcodeproj">
+            BuildableName = "Efficiency Lab.app"
+            BlueprintName = "Efficiency Lab"
+            ReferencedContainer = "container:Efficiency Lab.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
