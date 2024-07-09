@@ -95,6 +95,7 @@ class VideoCompare: ObservableObject {
         var adjustMapBuffer:MTLBuffer?
         var tmpFrameImg:UIImage?
         
+        
         func CompareAction(videoA:URL,videoB:URL)async throws{
                 self.assetA = AVAsset(url: videoA)
                 self.assetB = AVAsset(url: videoB)
@@ -103,7 +104,7 @@ class VideoCompare: ObservableObject {
                 try initGpuDevice()
                 try await self.prepareVideoParam()
                 try await  self.parseVideoDiffToTexture()
-                try  self.createVideoFromTextures()
+//                try  self.createVideoFromTextures()
         }
         
         func initGpuDevice() throws{
@@ -394,7 +395,8 @@ class VideoCompare: ObservableObject {
                         print("lowVal or highVal from gpu:lowVal=\(lowVal) max=\(highVal)")
                         self.debugFrameDataToJson(counter: counter)
 #endif
-                        return true
+                       try self.textureToImg(outTexture: outputTexture)
+                        return false
                 }
         }
         
@@ -720,10 +722,10 @@ extension  VideoCompare{
                                 }
                         }
                         
-                        //                        self.textureToImg(outTexture: outTexture)
-                        self.textureQueue.async(flags: .barrier) {
-                                self.textureBuffer.append(frameA)
-                        }
+//                        self.textureQueue.async(flags: .barrier) {
+//                                self.textureBuffer.append(frameA)
+//                        }
+//                        try textureToImg(outTexture: outTexture)
                 }
                 readerA.cancelReading()
                 readerB.cancelReading()
@@ -774,41 +776,18 @@ extension  VideoCompare{
                 }
         }
         
-        func createVideoFromPixelBuffers(pixelBuffers: [CVPixelBuffer], outputURL: URL) throws {
-                let videoSettings: [String: Any] = [
-                        AVVideoCodecKey: AVVideoCodecType.h264,
-                        AVVideoWidthKey: NSNumber(value: self.videoWidth),
-                        AVVideoHeightKey: NSNumber(value: self.videoHeight)
-                ]
-                let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mov)
-                let writerInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
-                writer.add(writerInput)
-                let pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: writerInput)
-                
-                writer.startWriting()
-                writer.startSession(atSourceTime: .zero)
-                
-                for (index, pixelBuffer) in pixelBuffers.enumerated() {
-                        let presentationTime = CMTime(value: CMTimeValue(index), timescale: 30) // Assuming 30fps
-                        pixelBufferAdaptor.append(pixelBuffer, withPresentationTime: presentationTime)
-                }
-                
-                writerInput.markAsFinished()
-                writer.finishWriting {
-                        DispatchQueue.main.async {
-                                self.comparedUrl = outputURL
-                        }
-                }
-        }
         
         private func createVideoFromTextures() throws{
-                self.logProcessInfo("生成对比视频")
                 var pixelBuffers = [CVPixelBuffer]()
+                var counter = 1
                 while !textureBuffer.isEmpty {
                         let texture = textureQueue.sync(flags: .barrier) { textureBuffer.removeFirst() }
                         if let pixelBuffer = convertTextureToPixelBuffer(texture) {
                                 pixelBuffers.append(pixelBuffer)
                         }
+                        
+                        self.logProcessInfo("转换视频格式 第\(counter)帧")
+                        counter+=1
                 }
                 
                 let outputURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("compare_result.mp4")
@@ -900,4 +879,63 @@ extension  VideoCompare{
                 
         }
 #endif
+        func createVideoFromPixelBuffers(pixelBuffers: [CVPixelBuffer], outputURL: URL) throws {
+                let videoSettings: [String: Any] = [
+                        AVVideoCodecKey: AVVideoCodecType.h264,
+                        AVVideoWidthKey: NSNumber(value: self.videoWidth),
+                        AVVideoHeightKey: NSNumber(value: self.videoHeight)
+                ]
+                
+                let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)  // Specify .mp4 fileType here
+                let writerInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
+                
+                let attributes: [String: Any] = [
+                        String(kCVPixelBufferPixelFormatTypeKey): Int(kCVPixelFormatType_32ARGB),
+                        String(kCVPixelBufferWidthKey): self.videoWidth,
+                        String(kCVPixelBufferHeightKey): self.videoHeight,
+                        String(kCVPixelBufferCGImageCompatibilityKey): false,
+                        String(kCVPixelBufferCGBitmapContextCompatibilityKey): false
+                ]
+                
+                let pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: writerInput, sourcePixelBufferAttributes: attributes)
+                
+                writer.add(writerInput)
+                writer.startWriting()
+                writer.startSession(atSourceTime: .zero)
+                
+                writerInput.requestMediaDataWhenReady(on: DispatchQueue(label: "mediaInputQueue")) {
+                        var frameCount = 0
+                        while frameCount < pixelBuffers.count {
+                                if writerInput.isReadyForMoreMediaData {
+                                        let pixelBuffer = pixelBuffers[frameCount]
+                                        let presentationTime = CMTime(value: CMTimeValue(frameCount), timescale: 30) // Assuming 30fps
+                                        if !pixelBufferAdaptor.append(pixelBuffer, withPresentationTime: presentationTime) {
+                                                self.logProcessInfo("Failed to append pixel buffer at frame \(frameCount)")
+                                                 break
+                                        }
+                                        frameCount += 1
+                                } else {
+                                        // Optional: Insert a slight delay to avoid spinning.
+                                        Thread.sleep(forTimeInterval: 0.1)
+                                }
+                                self.logProcessInfo("生产视频第\(frameCount)帧")
+                        }
+                        
+                        writerInput.markAsFinished()
+                        writer.finishWriting {
+                                DispatchQueue.main.async {
+                                        if writer.status == .failed {
+                                                self.logProcessInfo("处理失败: \(writer.error?.localizedDescription ?? "Unknown error")")
+                                        } else {
+                                                DispatchQueue.main.async {
+                                                        self.comparedUrl = outputURL
+                                                }
+                                                self.logProcessInfo("处理完成")
+                                        }
+                                }
+                        }
+                }
+        }
+        
+        
 }
