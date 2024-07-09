@@ -99,6 +99,9 @@ class VideoCompare: ObservableObject {
         
         //MARK: -- main cation
         func CompareAction(videoA:URL,videoB:URL)async throws{
+                DispatchQueue.main.async {
+                        self.comparedUrl = nil
+                }
                 self.assetA = AVAsset(url: videoA)
                 self.assetB = AVAsset(url: videoB)
                 
@@ -738,94 +741,6 @@ extension  VideoCompare{
                 DispatchQueue.main.async { self.processingMessage = info}
         }
         
-        private func textureToImg(outTexture:MTLTexture?) throws{
-                guard let ot = outTexture else{
-                        return
-                }
-                let width = ot.width
-                let height = ot.height
-                let bytesPerPixel = 4
-                let bytesPerRow = bytesPerPixel * width
-                let imageByteCount = bytesPerRow * height
-                var rawData = [UInt8](repeating: 0, count: Int(imageByteCount))
-                
-                ot.getBytes(&rawData,
-                            bytesPerRow: bytesPerRow,
-                            from: MTLRegionMake2D(0, 0, width, height),
-                            mipmapLevel: 0)
-                
-                let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
-                guard let providerRef = CGDataProvider(data: NSData(bytes: &rawData, length: rawData.count)) else {
-                        throw ASError.gpuBufferErr
-                }
-                guard let cgImage = CGImage(
-                        width: width,
-                        height: height,
-                        bitsPerComponent: 8,
-                        bitsPerPixel: 32,
-                        bytesPerRow: bytesPerRow,
-                        space: CGColorSpaceCreateDeviceRGB(),
-                        bitmapInfo: bitmapInfo,
-                        provider: providerRef,
-                        decode: nil,
-                        shouldInterpolate: true,
-                        intent: CGColorRenderingIntent.defaultIntent
-                ) else {
-                        return
-                }
-                DispatchQueue.main.async {
-                        self.tmpFrameImg = UIImage(cgImage: cgImage)
-                }
-        }
-        
-        
-        private func createVideoFromTextures() throws{
-                var pixelBuffers = [CVPixelBuffer]()
-                var counter = 1
-                while !textureBuffer.isEmpty {
-                        let texture = textureQueue.sync(flags: .barrier) { textureBuffer.removeFirst() }
-                        if let pixelBuffer = convertTextureToPixelBuffer(texture) {
-                                pixelBuffers.append(pixelBuffer)
-                        }
-                        
-                        self.logProcessInfo("转换视频格式 第\(counter)帧")
-                        counter+=1
-                }
-                
-                let outputURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("compare_result.mp4")
-                try createVideoFromPixelBuffers(pixelBuffers: pixelBuffers, outputURL: outputURL)
-                
-                self.logProcessInfo("创建成功")
-        }
-        
-        private func convertTextureToPixelBuffer(_ texture: MTLTexture) -> CVPixelBuffer? {
-                var pixelBuffer: CVPixelBuffer?
-                let status = CVPixelBufferCreate(nil, texture.width, texture.height, kCVPixelFormatType_32ARGB, nil, &pixelBuffer)
-                guard status == kCVReturnSuccess, let buffer = pixelBuffer else {
-                        return nil
-                }
-                
-                CVPixelBufferLockBaseAddress(buffer, [])
-                let pixelData = CVPixelBufferGetBaseAddress(buffer)
-                let region = MTLRegionMake2D(0, 0, texture.width, texture.height)
-                texture.getBytes(pixelData!, bytesPerRow: CVPixelBufferGetBytesPerRow(buffer), from: region, mipmapLevel: 0)
-                CVPixelBufferUnlockBaseAddress(buffer, [])
-                
-                return buffer
-        }
-        
-        
-        private func createNewTextureForFrame() -> MTLTexture? {
-                let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-                        pixelFormat: .rgba8Unorm,
-                        width: self.videoWidth,
-                        height: self.videoHeight,
-                        mipmapped: false
-                )
-                textureDescriptor.usage = [.shaderRead, .shaderWrite]
-                return device.makeTexture(descriptor: textureDescriptor)
-        }
-        
         
 #if CompareJsonData
         
@@ -881,63 +796,131 @@ extension  VideoCompare{
                 
         }
 #endif
-        func createVideoFromPixelBuffers(pixelBuffers: [CVPixelBuffer], outputURL: URL) throws {
-                let videoSettings: [String: Any] = [
-                        AVVideoCodecKey: AVVideoCodecType.h264,
-                        AVVideoWidthKey: NSNumber(value: self.videoWidth),
-                        AVVideoHeightKey: NSNumber(value: self.videoHeight)
-                ]
+        
+        
+        private func textureToImg(outTexture: MTLTexture?) throws {
+                guard let cgImage = try textureToCGImage(outTexture: outTexture) else { return }
+                DispatchQueue.main.async {
+                        self.tmpFrameImg = UIImage(cgImage: cgImage)
+                }
+        }
+        
+        private func textureToCGImage(outTexture: MTLTexture?) throws->CGImage?  {
+                guard let texture = outTexture else { return nil}
+                let colorSpace = CGColorSpaceCreateDeviceRGB()
                 
-                let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)  // Specify .mp4 fileType here
-                let writerInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
+                let context = CIContext()
+                guard let ciImage = CIImage(mtlTexture: texture, options: nil) else { return nil}
                 
-                let attributes: [String: Any] = [
-                        String(kCVPixelBufferPixelFormatTypeKey): Int(kCVPixelFormatType_32ARGB),
-                        String(kCVPixelBufferWidthKey): self.videoWidth,
-                        String(kCVPixelBufferHeightKey): self.videoHeight,
-                        String(kCVPixelBufferCGImageCompatibilityKey): false,
-                        String(kCVPixelBufferCGBitmapContextCompatibilityKey): false
-                ]
+                // 应用垂直翻转变换
+                var transform = CGAffineTransform(scaleX: 1, y: -1) // 垂直翻转
+                transform = transform.translatedBy(x: 0, y: -ciImage.extent.height) // 重新定位
                 
-                let pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: writerInput, sourcePixelBufferAttributes: attributes)
+                let transformedImage = ciImage.transformed(by: transform)
                 
-                writer.add(writerInput)
-                writer.startWriting()
-                writer.startSession(atSourceTime: .zero)
+                return context.createCGImage(transformedImage, from: transformedImage.extent, format: .RGBA8, colorSpace: colorSpace)
+        }
+        
+        func createVideoFromTextures() throws {
+                let frameDuration = CMTimeMake(value: 1, timescale: 30)
+                let outputURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("compare_result.mp4")
                 
-                writerInput.requestMediaDataWhenReady(on: DispatchQueue(label: "mediaInputQueue")) {
-                        var frameCount = 0
-                        while frameCount < pixelBuffers.count {
-                                if writerInput.isReadyForMoreMediaData {
-                                        let pixelBuffer = pixelBuffers[frameCount]
-                                        let presentationTime = CMTime(value: CMTimeValue(frameCount), timescale: 30) // Assuming 30fps
-                                        if !pixelBufferAdaptor.append(pixelBuffer, withPresentationTime: presentationTime) {
-                                                self.logProcessInfo("Failed to append pixel buffer at frame \(frameCount)")
-                                                break
+                guard let firstTexture = textureBuffer.first else {
+                        throw ASError.readVideoDataFailed
+                }
+                
+                let outputSize = CGSize(width: self.videoWidth, height: self.videoHeight)
+                
+                do {
+                        let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
+                        
+                        let outputSettings: [String: Any] = [
+                                AVVideoCodecKey: AVVideoCodecType.h264,
+                                AVVideoWidthKey: outputSize.width,
+                                AVVideoHeightKey: outputSize.height
+                        ]
+                        
+                        let writerInput = AVAssetWriterInput(mediaType: .video, outputSettings: outputSettings)
+                        let sourceBufferAttributes: [String: Any] = [
+                                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                                kCVPixelBufferWidthKey as String: outputSize.width,
+                                kCVPixelBufferHeightKey as String: outputSize.height
+                        ]
+                        
+                        let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: writerInput,
+                                                                           sourcePixelBufferAttributes: sourceBufferAttributes)
+                        
+                        guard writer.canAdd(writerInput) else {
+                                throw ASError.readVideoDataFailed
+                        }
+                        
+                        writer.add(writerInput)
+                        
+                        writer.startWriting()
+                        writer.startSession(atSourceTime: .zero)
+                        
+                        var frameTime = CMTime.zero
+                        
+                        for texture in textureBuffer {
+                               try autoreleasepool {
+                                        guard let pixelBuffer = pixelBufferFromTexture(texture: texture) else {
+                                                throw ASError.readVideoDataFailed
                                         }
-                                        frameCount += 1
-                                } else {
-                                        // Optional: Insert a slight delay to avoid spinning.
-                                        Thread.sleep(forTimeInterval: 0.1)
+                                        
+                                        while !writerInput.isReadyForMoreMediaData {
+                                                Thread.sleep(forTimeInterval: 0.1)
+                                        }
+                                        
+                                        adaptor.append(pixelBuffer, withPresentationTime: frameTime)
+                                        frameTime = frameTime + frameDuration
                                 }
-                                self.logProcessInfo("生产视频第\(frameCount)帧")
                         }
                         
                         writerInput.markAsFinished()
                         writer.finishWriting {
-                                DispatchQueue.main.async {
-                                        if writer.status == .failed {
-                                                self.logProcessInfo("处理失败: \(writer.error?.localizedDescription ?? "Unknown error")")
-                                        } else {
-                                                DispatchQueue.main.async {
-                                                        self.comparedUrl = outputURL
-                                                }
-                                                self.logProcessInfo("处理完成")
+                                if writer.status == .completed {
+                                        self.logProcessInfo("生成视频成功")
+                                        DispatchQueue.main.async {
+                                                self.comparedUrl = outputURL
                                         }
+                                } else {
+                                        self.logProcessInfo("生成视频  \(writer.status) =\(writer.error!.localizedDescription)")
                                 }
                         }
+                } catch {
+                        throw error
                 }
         }
         
+        func pixelBufferFromTexture(texture: MTLTexture) -> CVPixelBuffer? {
+                let width = texture.width
+                let height = texture.height
+                
+                var pixelBuffer: CVPixelBuffer?
+                let attributes: [String: Any] = [
+                        kCVPixelBufferMetalCompatibilityKey as String: true,
+                        kCVPixelBufferWidthKey as String: width,
+                        kCVPixelBufferHeightKey as String: height,
+                        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+                ]
+                
+                let status = CVPixelBufferCreate(kCFAllocatorDefault, width, height, kCVPixelFormatType_32BGRA, attributes as CFDictionary, &pixelBuffer)
+                
+                guard status == kCVReturnSuccess, let buffer = pixelBuffer else {
+                        return nil
+                }
+                
+                CVPixelBufferLockBaseAddress(buffer, [])
+                
+                let pixelData = CVPixelBufferGetBaseAddress(buffer)!
+                let bytesPerRow = CVPixelBufferGetBytesPerRow(buffer)
+                
+                let region = MTLRegionMake2D(0, 0, width, height)
+                texture.getBytes(pixelData, bytesPerRow: bytesPerRow, from: region, mipmapLevel: 0)
+                
+                CVPixelBufferUnlockBaseAddress(buffer, [])
+                
+                return buffer
+        }
         
 }

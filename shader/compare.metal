@@ -592,7 +592,6 @@ inline float4 fc(float score) {
         return mix(lowColor, highColor, score); // Linear interpolation between colors based on score
 }
 
-
 kernel void overlayKernel(
                           texture2d<float, access::write> outTexture [[texture(0)]],
                           device float* fullMap [[buffer(0)]],

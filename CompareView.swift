@@ -137,7 +137,6 @@ struct CompareView: View {
                                 DispatchQueue.main.async {
                                         self.isProcessing = false
                                         self.compareTime = executionTime
-                                        // self.comparedUrl = // Set this to the result of CompareAction
                                 }
                         } catch {
                                 DispatchQueue.main.async {
