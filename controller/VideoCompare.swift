@@ -89,7 +89,7 @@ class VideoCompare: ObservableObject {
         var percentileLowHighBuffer:MTLBuffer?
         var adjustMapBuffer:MTLBuffer?
         var outTexture:MTLTexture?
-        
+        var tmpFrameImg:UIImage?
         
         func CompareAction(videoA:URL,videoB:URL)async throws{
                 self.assetA = AVAsset(url: videoA)
@@ -193,7 +193,7 @@ class VideoCompare: ObservableObject {
                       let ptBuffer = device.makeBuffer(length: 256 * MemoryLayout<UInt32>.stride, options: .storageModeShared),
                       let lowHighBuffer = device.makeBuffer(length: MemoryLayout<Float>.size * 2, options: .storageModeShared),
                       let adBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<Float>.stride, options: .storageModeShared),
-                let outTexture = device.makeTexture(descriptor: textureDescriptor) else{
+                      let outTexture = device.makeTexture(descriptor: textureDescriptor) else{
                         throw ASError.gpuBufferErr
                 }
                 
@@ -394,6 +394,7 @@ class VideoCompare: ObservableObject {
                         print("lowVal or highVal from gpu:lowVal=\(lowVal) max=\(highVal)")
                         self.debugFrameDataToJson(counter: counter)
 #endif
+                        self.textureToImg()
                         return false;//true
                 }
         }
@@ -724,7 +725,47 @@ extension  VideoCompare{
                 DispatchQueue.main.async { self.processingMessage = info}
         }
         
+        private func textureToImg(){
+                guard let ot = outTexture else{
+                        return
+                }
+                let width = ot.width
+                let height = ot.height
+                let bytesPerPixel = 4
+                let bytesPerRow = bytesPerPixel * width
+                let imageByteCount = bytesPerRow * height
+                var rawData = [UInt8](repeating: 0, count: Int(imageByteCount))
+                
+                ot.getBytes(&rawData,
+                            bytesPerRow: bytesPerRow,
+                            from: MTLRegionMake2D(0, 0, width, height),
+                            mipmapLevel: 0)
+                
+                let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
+                guard let providerRef = CGDataProvider(data: NSData(bytes: &rawData, length: rawData.count)) else {
+                        fatalError("Cannot create data provider")
+                }
+                guard let cgImage = CGImage(
+                        width: width,
+                        height: height,
+                        bitsPerComponent: 8,
+                        bitsPerPixel: 32,
+                        bytesPerRow: bytesPerRow,
+                        space: CGColorSpaceCreateDeviceRGB(),
+                        bitmapInfo: bitmapInfo,
+                        provider: providerRef,
+                        decode: nil,
+                        shouldInterpolate: true,
+                        intent: CGColorRenderingIntent.defaultIntent
+                ) else {
+                        return
+                }
+                
+                self.tmpFrameImg = UIImage(cgImage: cgImage)
+        }
+        
 #if CompareJsonData
+        
         private func debugFrameDataToJson(counter:Int){
                 
                 
@@ -773,6 +814,8 @@ extension  VideoCompare{
                 
                 saveRawDataToFile(fileName: "gpu_adjust_map_\(counter)_.json", buffer: adjustMapBuffer!,
                                   width: self.videoWidth, height: self.videoHeight,  type: Float.self)
+                
+                
         }
 #endif
 }

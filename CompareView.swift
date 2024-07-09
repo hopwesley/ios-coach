@@ -11,6 +11,7 @@ struct CompareView: View {
         var alignTime: Double?
         var comparedUrl: URL?
         @State var compareTime: Double? = nil
+        @State private var isImageFullScreen = false // 状态变量，用于管理图片的显示状态
         
         var body: some View {
                 ZStack {
@@ -47,12 +48,25 @@ struct CompareView: View {
                                         if let cTime = compareTime {
                                                 Text("对比时间: \(cTime, specifier: "%.2f") 秒")
                                         }
+                                        
+                                        if let tmpFrameImg = compareror.tmpFrameImg {
+                                                Image(uiImage: tmpFrameImg)
+                                                        .resizable()
+                                                        .aspectRatio(contentMode: .fit)
+                                                        .frame(height: 200)
+                                                        .background(Color.black)
+                                                        .onTapGesture {
+                                                                withAnimation {
+                                                                        isImageFullScreen = true
+                                                                }
+                                                        }
+                                        }
+                                        
                                         if let comparedUrl = comparedUrl {
                                                 VideoPlayer(player: AVPlayer(url: comparedUrl))
                                                         .frame(height: 200)
                                                         .background(Color.black)
                                         }
-                                     
                                 }
                                 .padding(20) // Add padding around the entire content
                                 .background(Color.white) // Add a white background
@@ -71,6 +85,28 @@ struct CompareView: View {
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 .background(Color.black.opacity(0.5).edgesIgnoringSafeArea(.all))
                                 .zIndex(1)
+                        }
+                        
+                        if isImageFullScreen {
+                                VStack {
+                                        Spacer()
+                                        
+                                        Image(uiImage: compareror.tmpFrameImg!)
+                                                .resizable()
+                                                .aspectRatio(contentMode: .fit)
+                                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                                .background(Color.black)
+                                                .onTapGesture {
+                                                        withAnimation {
+                                                                isImageFullScreen = false
+                                                        }
+                                                }
+                                        
+                                        Spacer()
+                                }
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(Color.black.opacity(0.9).edgesIgnoringSafeArea(.all))
+                                .zIndex(2)
                         }
                 }
                 .disabled(isProcessing) // Disable all interactions when processing
