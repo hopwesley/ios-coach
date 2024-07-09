@@ -9,7 +9,6 @@ struct CompareView: View {
         @StateObject private var compareror = VideoCompare()
         @State private var isProcessing = false
         var alignTime: Double?
-        var comparedUrl: URL?
         @State var compareTime: Double? = nil
         @State private var isImageFullScreen = false // 状态变量，用于管理图片的显示状态
         
@@ -62,7 +61,7 @@ struct CompareView: View {
                                                         }
                                         }
                                         
-                                        if let comparedUrl = comparedUrl {
+                                        if let comparedUrl = compareror.comparedUrl {
                                                 VideoPlayer(player: AVPlayer(url: comparedUrl))
                                                         .frame(height: 200)
                                                         .background(Color.black)

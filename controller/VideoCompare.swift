@@ -13,6 +13,11 @@ import UIKit
 class VideoCompare: ObservableObject {
         @Published var processingMessage: String = "开始处理..."
         @Published var tmpImg: UIImage?
+        @Published var comparedUrl: URL?
+        
+        private let textureQueue = DispatchQueue(label: "textureQueue", attributes: .concurrent)
+        private var textureBuffer = [MTLTexture]()
+        
         
         var videoWidth:Int = 0
         var videoHeight:Int = 0
@@ -88,7 +93,6 @@ class VideoCompare: ObservableObject {
         var maxMinBuffer:MTLBuffer?
         var percentileLowHighBuffer:MTLBuffer?
         var adjustMapBuffer:MTLBuffer?
-        var outTexture:MTLTexture?
         var tmpFrameImg:UIImage?
         
         func CompareAction(videoA:URL,videoB:URL)async throws{
@@ -98,7 +102,8 @@ class VideoCompare: ObservableObject {
                 logProcessInfo("初始化GPU")
                 try initGpuDevice()
                 try await self.prepareVideoParam()
-                try await  self.processVideo()
+                try await  self.parseVideoDiffToTexture()
+                try  self.createVideoFromTextures()
         }
         
         func initGpuDevice() throws{
@@ -192,8 +197,7 @@ class VideoCompare: ObservableObject {
                       let ggBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<Float>.stride, options: .storageModeShared),
                       let ptBuffer = device.makeBuffer(length: 256 * MemoryLayout<UInt32>.stride, options: .storageModeShared),
                       let lowHighBuffer = device.makeBuffer(length: MemoryLayout<Float>.size * 2, options: .storageModeShared),
-                      let adBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<Float>.stride, options: .storageModeShared),
-                      let outTexture = device.makeTexture(descriptor: textureDescriptor) else{
+                      let adBuffer = device.makeBuffer(length: self.pixelSize * MemoryLayout<Float>.stride, options: .storageModeShared) else{
                         throw ASError.gpuBufferErr
                 }
                 
@@ -217,7 +221,6 @@ class VideoCompare: ObservableObject {
                 self.percentileBuffer = ptBuffer
                 self.percentileLowHighBuffer = lowHighBuffer
                 self.adjustMapBuffer = adBuffer
-                self.outTexture = outTexture
                 
                 pixelThreadGrpNo = MTLSize(width: (self.videoWidth + PixelThreadWidth - 1) / PixelThreadWidth,
                                            height: (self.videoHeight + PixelThreadHeight - 1) / PixelThreadHeight,
@@ -297,7 +300,6 @@ class VideoCompare: ObservableObject {
                 memset(percentileLowHighBuffer?.contents(), 0, 2 * MemoryLayout<UInt8>.stride)
                 memset(percentileBuffer?.contents(), 0, 256 * MemoryLayout<UInt32>.stride)
                 memset(adjustMapBuffer?.contents(), 0, self.pixelSize * MemoryLayout<Float>.stride)
-                //                memset(outputImageBuffer?.contents(), 0, self.pixelSize * 4)//TODO::texture memset 0
                 
                 for i in 0..<3{
                         memset(avgGradientOfBlockA[i]?.contents(), 0, numBlockNo[i]   * MemoryLayout<Float>.stride)
@@ -312,7 +314,7 @@ class VideoCompare: ObservableObject {
         }
         
         
-        private func processVideo() async throws{
+        private func parseVideoDiffToTexture() async throws{
                 var counter = 0;
                 
                 var preFrameA:MTLTexture? = nil
@@ -323,7 +325,7 @@ class VideoCompare: ObservableObject {
                         try self.prepareBlockBuffer(level: i)
                 }
                 
-                try await iterateVideoFrame(){frameA, frameB in
+                try await iterateVideoFrame(){frameA, frameB, outputTexture in
                         
                         counter+=1
                         self.logProcessInfo("处理第\(counter)帧")
@@ -350,8 +352,6 @@ class VideoCompare: ObservableObject {
                                 try self.distanceOfDiscriptor(commandBuffer: commandBuffer, level: i)
                                 
                                 try self.biLinearInterpolate(commandBuffer: commandBuffer, level: i)
-                                
-                                
                         }
                         
                         commandBuffer.commit()
@@ -377,7 +377,7 @@ class VideoCompare: ObservableObject {
                         
                         try self.adjustAFrame(commandBuffer: commandBuffer)
                         
-                        try self.overlayFinalImg(commandBuffer:commandBuffer);
+                        try self.overlayFinalImg(commandBuffer:commandBuffer, outTexture: outputTexture);
                         
                         commandBuffer.commit()
                         commandBuffer.waitUntilCompleted()
@@ -394,8 +394,7 @@ class VideoCompare: ObservableObject {
                         print("lowVal or highVal from gpu:lowVal=\(lowVal) max=\(highVal)")
                         self.debugFrameDataToJson(counter: counter)
 #endif
-                        self.textureToImg()
-                        return false;//true
+                        return true
                 }
         }
         
@@ -643,7 +642,7 @@ class VideoCompare: ObservableObject {
                 coder.endEncoding()
         }
         
-        func overlayFinalImg(commandBuffer:MTLCommandBuffer) throws{
+        func overlayFinalImg(commandBuffer:MTLCommandBuffer, outTexture:MTLTexture) throws{
                 guard let coder = commandBuffer.makeComputeCommandEncoder()else{
                         throw ASError.gpuEncoderErr
                 }
@@ -684,7 +683,7 @@ extension  VideoCompare{
                 return inputTexture
         }
         
-        private func iterateVideoFrame(callBack: ((MTLTexture,MTLTexture)throws -> Bool)?) async throws{
+        private func iterateVideoFrame(callBack: ((MTLTexture,MTLTexture,MTLTexture)throws -> Bool)?) async throws{
                 let readerA = try AVAssetReader(asset: self.assetA)
                 let readerB = try AVAssetReader(asset: self.assetB)
                 guard let videoTrackA = try await self.assetA.loadTracks(withMediaType: .video).first,
@@ -709,23 +708,33 @@ extension  VideoCompare{
                                let frameB = pixelBufferToTexture(sampleBufferB)else{
                                 throw ASError.readVideoDataFailed
                         }
+                        
+                        guard let outTexture = device.makeTexture(descriptor: textureDescriptor) else{
+                                throw ASError.gpuBufferErr
+                        }
+                        
                         if let callBack = callBack {
-                                let conitune = try callBack(frameA,frameB)
+                                let conitune = try callBack(frameA, frameB, outTexture)
                                 if !conitune{
                                         break
                                 }
                         }
+                        
+                        //                        self.textureToImg(outTexture: outTexture)
+                        self.textureQueue.async(flags: .barrier) {
+                                self.textureBuffer.append(frameA)
+                        }
                 }
                 readerA.cancelReading()
                 readerB.cancelReading()
-                self.logProcessInfo("视频处理完成")
+                self.logProcessInfo("视频对比完成")
         }
         
         private func logProcessInfo(_ info:String){
                 DispatchQueue.main.async { self.processingMessage = info}
         }
         
-        private func textureToImg(){
+        private func textureToImg(outTexture:MTLTexture?) throws{
                 guard let ot = outTexture else{
                         return
                 }
@@ -743,7 +752,7 @@ extension  VideoCompare{
                 
                 let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
                 guard let providerRef = CGDataProvider(data: NSData(bytes: &rawData, length: rawData.count)) else {
-                        fatalError("Cannot create data provider")
+                        throw ASError.gpuBufferErr
                 }
                 guard let cgImage = CGImage(
                         width: width,
@@ -760,9 +769,82 @@ extension  VideoCompare{
                 ) else {
                         return
                 }
-                
-                self.tmpFrameImg = UIImage(cgImage: cgImage)
+                DispatchQueue.main.async {
+                        self.tmpFrameImg = UIImage(cgImage: cgImage)
+                }
         }
+        
+        func createVideoFromPixelBuffers(pixelBuffers: [CVPixelBuffer], outputURL: URL) throws {
+                let videoSettings: [String: Any] = [
+                        AVVideoCodecKey: AVVideoCodecType.h264,
+                        AVVideoWidthKey: NSNumber(value: self.videoWidth),
+                        AVVideoHeightKey: NSNumber(value: self.videoHeight)
+                ]
+                let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mov)
+                let writerInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
+                writer.add(writerInput)
+                let pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: writerInput)
+                
+                writer.startWriting()
+                writer.startSession(atSourceTime: .zero)
+                
+                for (index, pixelBuffer) in pixelBuffers.enumerated() {
+                        let presentationTime = CMTime(value: CMTimeValue(index), timescale: 30) // Assuming 30fps
+                        pixelBufferAdaptor.append(pixelBuffer, withPresentationTime: presentationTime)
+                }
+                
+                writerInput.markAsFinished()
+                writer.finishWriting {
+                        DispatchQueue.main.async {
+                                self.comparedUrl = outputURL
+                        }
+                }
+        }
+        
+        private func createVideoFromTextures() throws{
+                self.logProcessInfo("生成对比视频")
+                var pixelBuffers = [CVPixelBuffer]()
+                while !textureBuffer.isEmpty {
+                        let texture = textureQueue.sync(flags: .barrier) { textureBuffer.removeFirst() }
+                        if let pixelBuffer = convertTextureToPixelBuffer(texture) {
+                                pixelBuffers.append(pixelBuffer)
+                        }
+                }
+                
+                let outputURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("compare_result.mp4")
+                try createVideoFromPixelBuffers(pixelBuffers: pixelBuffers, outputURL: outputURL)
+                
+                self.logProcessInfo("创建成功")
+        }
+        
+        private func convertTextureToPixelBuffer(_ texture: MTLTexture) -> CVPixelBuffer? {
+                var pixelBuffer: CVPixelBuffer?
+                let status = CVPixelBufferCreate(nil, texture.width, texture.height, kCVPixelFormatType_32ARGB, nil, &pixelBuffer)
+                guard status == kCVReturnSuccess, let buffer = pixelBuffer else {
+                        return nil
+                }
+                
+                CVPixelBufferLockBaseAddress(buffer, [])
+                let pixelData = CVPixelBufferGetBaseAddress(buffer)
+                let region = MTLRegionMake2D(0, 0, texture.width, texture.height)
+                texture.getBytes(pixelData!, bytesPerRow: CVPixelBufferGetBytesPerRow(buffer), from: region, mipmapLevel: 0)
+                CVPixelBufferUnlockBaseAddress(buffer, [])
+                
+                return buffer
+        }
+        
+        
+        private func createNewTextureForFrame() -> MTLTexture? {
+                let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+                        pixelFormat: .rgba8Unorm,
+                        width: self.videoWidth,
+                        height: self.videoHeight,
+                        mipmapped: false
+                )
+                textureDescriptor.usage = [.shaderRead, .shaderWrite]
+                return device.makeTexture(descriptor: textureDescriptor)
+        }
+        
         
 #if CompareJsonData
         
