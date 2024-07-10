@@ -17,9 +17,9 @@ class VideoCompare: ObservableObject {
         @Published var tmpImg: UIImage?
         @Published var comparedUrl: URL?
         
-        private let textureQueue = DispatchQueue(label: "textureQueue", attributes: .concurrent)
+        //        private let textureQueue = DispatchQueue(label: "textureQueue", attributes: .concurrent)
         private var textureBuffer = [MTLTexture]()
-        
+        private let semaphore = DispatchSemaphore(value: 0)
         
         var videoWidth:Int = 0
         var videoHeight:Int = 0
@@ -391,13 +391,17 @@ class VideoCompare: ObservableObject {
 #endif
                         
                         
-                        self.textureQueue.async(flags: .barrier) {
-                                self.textureBuffer.append(outTexture)
-                        }
+                        self.textureBuffer.append(outTexture)
+                        self.semaphore.signal()
+                        print("productor send-------->>")
                         
                         try self.textureToImg(outTexture: outTexture)
                         return true
                 }
+                
+                self.semaphore.signal()
+                
+                print("productor finish-------->>")
         }
         //MARK: -- main cation
         func CompareAction(videoA:URL,videoB:URL)async throws{
@@ -411,8 +415,10 @@ class VideoCompare: ObservableObject {
                 logProcessInfo("初始化GPU")
                 try initGpuDevice()
                 try await self.prepareVideoParam()
-                try await  self.parseVideoDiffToTexture()
-                try  self.createVideoFromTextures()
+                Task{
+                        try  self.createVideoFromTextures()
+                }
+                try await self.parseVideoDiffToTexture()
                 //                try  self.TestCreateVideo()
         }
         //MARK: -- gpu shader calll
@@ -875,10 +881,15 @@ extension  VideoCompare{
                 writer.startSession(atSourceTime: .zero)
                 
                 var frameTime = CMTime.zero
-                
-                while !self.textureBuffer.isEmpty {
+                while true {
+                        semaphore.wait()
+                        print("consumer got1+++++++++++++>>")
+                        if textureBuffer.isEmpty {
+                                print("consumer finish got1-+++++++++++++>>")
+                                break
+                        }
                         let texture = self.textureBuffer.removeFirst()
-                        
+                        print("consumer consuming+++++++++++++>>")
                         guard let pixelBuffer = self.pixelBufferFromTexture(texture: texture) else {
                                 writer.cancelWriting()
                                 self.logProcessInfo("Failed to create pixel buffer from texture.")
@@ -887,6 +898,7 @@ extension  VideoCompare{
                         adaptor.append(pixelBuffer, withPresentationTime: frameTime)
                         frameTime = frameTime + frameDuration
                 }
+                
                 writerInput.markAsFinished()
                 writer.finishWriting {
                         DispatchQueue.main.async {
@@ -900,7 +912,6 @@ extension  VideoCompare{
                                 }
                         }
                 }
-                
         }
         
         private func pixelBufferFromTexture(texture: MTLTexture) -> CVPixelBuffer? {
