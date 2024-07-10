@@ -845,12 +845,7 @@ extension  VideoCompare{
                 let frameDuration = CMTimeMake(value: 1, timescale: 30)
                 let outputURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("compare_result_\(Date().timeIntervalSince1970).mp4")
                 
-                guard let firstTexture = textureBuffer.first else {
-                        throw NSError(domain: "VideoGeneration", code: 0, userInfo: [NSLocalizedDescriptionKey: "Texture buffer is empty."])
-                }
-                
-                let outputSize = CGSize(width: firstTexture.width, height: firstTexture.height)
-                
+                let outputSize = CGSize(width:self.videoWidth, height: self.videoHeight)
                 
                 let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
                 
@@ -881,23 +876,17 @@ extension  VideoCompare{
                 
                 var frameTime = CMTime.zero
                 
-                for texture in self.textureBuffer {
-                        autoreleasepool {
-                                guard let pixelBuffer = self.pixelBufferFromTexture(texture: texture) else {
-                                        writer.cancelWriting()
-                                        self.logProcessInfo("Failed to create pixel buffer from texture.")
-                                        return
-                                }
-                                
-                                while !writerInput.isReadyForMoreMediaData {
-                                        Thread.sleep(forTimeInterval: 0.02)
-                                }
-                                
-                                adaptor.append(pixelBuffer, withPresentationTime: frameTime)
-                                frameTime = frameTime + frameDuration
+                while !self.textureBuffer.isEmpty {
+                        let texture = self.textureBuffer.removeFirst()
+                        
+                        guard let pixelBuffer = self.pixelBufferFromTexture(texture: texture) else {
+                                writer.cancelWriting()
+                                self.logProcessInfo("Failed to create pixel buffer from texture.")
+                                return
                         }
+                        adaptor.append(pixelBuffer, withPresentationTime: frameTime)
+                        frameTime = frameTime + frameDuration
                 }
-                
                 writerInput.markAsFinished()
                 writer.finishWriting {
                         DispatchQueue.main.async {
