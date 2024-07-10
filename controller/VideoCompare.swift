@@ -328,7 +328,7 @@ class VideoCompare: ObservableObject {
                                 preFrameB = frameB
                                 return true
                         }
-                       
+                        
                         self.resetGpuBuffer()
                         guard let commandBuffer = self.commandQueue.makeCommandBuffer(),
                               let outTexture = self.device.makeTexture(descriptor: self.textureDescriptor) else{
@@ -411,8 +411,8 @@ class VideoCompare: ObservableObject {
                 try initGpuDevice()
                 try await self.prepareVideoParam()
                 try await  self.parseVideoDiffToTexture()
-                                try  self.createVideoFromTextures()
-//                try  self.TestCreateVideo()
+                try  self.createVideoFromTextures()
+                //                try  self.TestCreateVideo()
         }
         //MARK: -- gpu shader calll
         func pixelGradient(preFrame:MTLTexture, curFrame:MTLTexture, preFrameB:MTLTexture, curFrameB:MTLTexture,commandBuffer:MTLCommandBuffer) throws{
@@ -682,7 +682,6 @@ class VideoCompare: ObservableObject {
 
 //MARK: -- util functions
 extension  VideoCompare{
-        
         private func pixelBufferToTexture(_ sbuf: CMSampleBuffer)->MTLTexture?{
                 
                 guard let videoFrame = CMSampleBufferGetImageBuffer(sbuf) else{
@@ -725,14 +724,14 @@ extension  VideoCompare{
                                let frameB = pixelBufferToTexture(sampleBufferB)else{
                                 throw ASError.readVideoDataFailed
                         }
-                       
+                        
                         if let callBack = callBack {
                                 let conitune = try callBack(frameA, frameB)
                                 if !conitune{
                                         break
                                 }
                         }
-                      
+                        
                 }
                 readerA.cancelReading()
                 readerB.cancelReading()
@@ -920,7 +919,7 @@ extension  VideoCompare{
         }
         
         
-   
+        
         
         
         

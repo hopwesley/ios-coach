@@ -11,11 +11,12 @@ import SwiftData
 @available(iOS 17, *)
 @main
 struct SportsCoachApp: App {
+        init() {
+                clearTemporaryDirectory()
+        }
         var body: some Scene {
                 WindowGroup {
-                        ContentView().onAppear(){
-                                clearTemporaryDirectory()
-                        }
+                        ContentView()
                 }
         }
 }

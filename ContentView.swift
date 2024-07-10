@@ -137,8 +137,8 @@ struct ContentView: View {
                         let executionTime = endTime.timeIntervalSince(startTime)
                         Task {
                                 do {
-                                        async let resultA: () = videoCtlA.cipherVideo(buffer:bufferA, offset: offsetA, len: seqLen)
-                                        async let resultB: () = videoCtlB.cipherVideo(buffer:bufferB,offset: offsetB, len: seqLen)
+                                        async let resultA: () = videoCtlA.cipherVideo(offset: offsetA, len: seqLen)
+                                        async let resultB: () = videoCtlB.cipherVideo(offset: offsetB, len: seqLen)
                                         
                                         try await resultA
                                         try await resultB

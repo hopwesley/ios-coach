@@ -46,9 +46,7 @@ class VideoAlignment: ObservableObject {
         var blockThreadGrpNo:MTLSize?
         var  summerGroupSize:MTLSize = MTLSize(width: ThreadSizeForParallelSum, height: 1, depth: 1)
         var summerGroups:MTLSize = MTLSize(width: HistogramSize, height: 1, depth: 1)
-        
-        var cipheredBlockAvgGradient:MTLBuffer?
-        
+         
         
         func removeVideo(){
                 if let url = self.videoURL{
@@ -379,28 +377,15 @@ class VideoAlignment: ObservableObject {
                 counter+=1
         }
         #endif
-        func cipherVideo(buffer:MTLBuffer, offset: Int, len: Int) async throws {
+        
+        func cipherVideo(offset: Int, len: Int) async throws {
                 guard let videoURL = self.videoURL else {
                         throw ASError.cipherErr
                 }
                 
-                let startIndex = offset * HistogramSize // 开始位置
-                var trimmedBuffer = [Float](repeating: 0, count: len * HistogramSize)
-                for i in 0..<(len * HistogramSize) {
-                        trimmedBuffer[i] = buffer.contents().load(fromByteOffset: (startIndex + i) * MemoryLayout<Float>.stride, as: Float.self)
-                }
-                
-                guard let resultBuffer = device.makeBuffer(bytes: &trimmedBuffer, length: len * 10 * MemoryLayout<Float>.stride, options: []) else{
-                        throw ASError.cipherErr
-                }
-                self.cipheredBlockAvgGradient = resultBuffer
-                
                 let asset = AVAsset(url: videoURL)
                 let outputURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(videoURL.lastPathComponent+"_trimmedVideo.mp4")
-#if AlignJsonData
-                saveRawDataToFile(fileName: outputURL.lastPathComponent+".json", buffer: resultBuffer, width: 10, height: len, type: Float.self)
-#endif
-                // Remove existing file at output URL
+
                 try? FileManager.default.removeItem(at: outputURL)
                 
                 guard let videoTrack = try await asset.loadTracks(withMediaType: .video).first else {
@@ -417,13 +402,14 @@ class VideoAlignment: ObservableObject {
                         print("Failed to create composition track")
                         return
                 }
-                
+                // 应用原始视频轨道的变换
+                compositionTrack.preferredTransform = try await videoTrack.load(.preferredTransform)
                 do {
                         try compositionTrack.insertTimeRange(CMTimeRange(start: startTime, duration: duration), of: videoTrack, at: .zero)
                         
                         // Check export preset compatibility
                         let isCompatible = try await withCheckedThrowingContinuation { continuation in
-                                AVAssetExportSession.determineCompatibility(ofExportPreset: AVAssetExportPresetHighestQuality, with: composition, outputFileType: .mp4) { compatible in
+                                AVAssetExportSession.determineCompatibility(ofExportPreset: AVAssetExportPresetPassthrough, with: composition, outputFileType: .mp4) { compatible in
                                         continuation.resume(returning: compatible)
                                 }
                         }
@@ -433,7 +419,7 @@ class VideoAlignment: ObservableObject {
                                 return
                         }
                         
-                        guard let exporter = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
+                        guard let exporter = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetPassthrough) else {
                                 print("Failed to create exporter")
                                 return
                         }
