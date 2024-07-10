@@ -822,7 +822,6 @@ extension  VideoCompare{
         
 #endif
         
-        
         private func textureToImg(outTexture: MTLTexture?) throws {
                 guard let cgImage = try textureToCGImage(outTexture: outTexture) else { return }
                 DispatchQueue.main.async {
@@ -917,11 +916,6 @@ extension  VideoCompare{
                         throw error
                 }
         }
-        
-        
-        
-        
-        
         
         private func pixelBufferFromTexture(texture: MTLTexture) -> CVPixelBuffer? {
                 

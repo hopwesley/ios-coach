@@ -46,7 +46,7 @@ class VideoAlignment: ObservableObject {
         var blockThreadGrpNo:MTLSize?
         var  summerGroupSize:MTLSize = MTLSize(width: ThreadSizeForParallelSum, height: 1, depth: 1)
         var summerGroups:MTLSize = MTLSize(width: HistogramSize, height: 1, depth: 1)
-         
+        
         
         func removeVideo(){
                 if let url = self.videoURL{
@@ -359,7 +359,7 @@ class VideoAlignment: ObservableObject {
                 coder.dispatchThreadgroups(summerGroups,threadsPerThreadgroup: summerGroupSize)
                 coder.endEncoding()
         }
-        #if AlignJsonData
+#if AlignJsonData
         var counter:Int = 0
         func debugBuffer(sumGradient:MTLBuffer){
                 let w = self.videoWidth
@@ -376,7 +376,7 @@ class VideoAlignment: ObservableObject {
                 saveRawDataToFile(fileName: "gpu_gradientSumOfOneFrame_\(counter).json", buffer: sumGradient,  width: 10, height: 1,  type: Float.self)
                 counter+=1
         }
-        #endif
+#endif
         
         func cipherVideo(offset: Int, len: Int) async throws {
                 guard let videoURL = self.videoURL else {
@@ -384,8 +384,8 @@ class VideoAlignment: ObservableObject {
                 }
                 
                 let asset = AVAsset(url: videoURL)
-                let outputURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(videoURL.lastPathComponent+"_trimmedVideo.mp4")
-
+                let outputURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(videoURL.lastPathComponent + "_trimmedVideo.mp4")
+                
                 try? FileManager.default.removeItem(at: outputURL)
                 
                 guard let videoTrack = try await asset.loadTracks(withMediaType: .video).first else {
@@ -402,30 +402,41 @@ class VideoAlignment: ObservableObject {
                         print("Failed to create composition track")
                         return
                 }
+                
                 // 应用原始视频轨道的变换
-                compositionTrack.preferredTransform = try await videoTrack.load(.preferredTransform)
+                let transform = try await videoTrack.load(.preferredTransform)
+                compositionTrack.preferredTransform = transform
+                
                 do {
                         try compositionTrack.insertTimeRange(CMTimeRange(start: startTime, duration: duration), of: videoTrack, at: .zero)
                         
-                        // Check export preset compatibility
-                        let isCompatible = try await withCheckedThrowingContinuation { continuation in
-                                AVAssetExportSession.determineCompatibility(ofExportPreset: AVAssetExportPresetPassthrough, with: composition, outputFileType: .mp4) { compatible in
-                                        continuation.resume(returning: compatible)
-                                }
-                        }
+                        // 确保renderSize正确
+                        let naturalSize = try await videoTrack.load(.naturalSize)
+                        let transformedSize = naturalSize.applying(transform)
+                        let renderSize = CGSize(width: abs(transformedSize.width), height: abs(transformedSize.height))
                         
-                        guard isCompatible else {
-                                print("Export preset is not compatible with the asset")
-                                return
-                        }
+                        // 创建视频合成
+                        let videoComposition = AVMutableVideoComposition()
+                        videoComposition.renderSize = renderSize
+                        videoComposition.frameDuration = CMTime(value: 1, timescale: Int32(frameRate))
                         
-                        guard let exporter = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetPassthrough) else {
+                        let instruction = AVMutableVideoCompositionInstruction()
+                        instruction.timeRange = CMTimeRange(start: .zero, duration: duration)
+                        
+                        let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionTrack)
+                        layerInstruction.setTransform(transform, at: .zero)
+                        
+                        instruction.layerInstructions = [layerInstruction]
+                        videoComposition.instructions = [instruction]
+                        
+                        guard let exporter = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
                                 print("Failed to create exporter")
                                 return
                         }
                         
                         exporter.outputURL = outputURL
                         exporter.outputFileType = .mp4
+                        exporter.videoComposition = videoComposition
                         
                         try await withCheckedThrowingContinuation { continuation in
                                 exporter.exportAsynchronously {
@@ -433,7 +444,7 @@ class VideoAlignment: ObservableObject {
                                         case .completed:
                                                 DispatchQueue.main.async {
                                                         self.cipheredVideoUrl = outputURL
-                                                        print("Video trimmed successfully",outputURL.absoluteString)
+                                                        print("Video trimmed successfully", outputURL.absoluteString)
                                                 }
                                                 continuation.resume()
                                         case .failed:
@@ -447,6 +458,7 @@ class VideoAlignment: ObservableObject {
                         print("Error during composition: \(error)")
                 }
         }
+        
 }
 
 
