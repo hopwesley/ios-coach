@@ -404,6 +404,7 @@ class VideoCompare: ObservableObject {
                 DispatchQueue.main.async {
                         self.comparedUrl = nil
                 }
+                self.textureBuffer.removeAll()
                 self.assetA = AVAsset(url: videoA)
                 self.assetB = AVAsset(url: videoB)
                 
