@@ -17,7 +17,7 @@ class VideoCompare: ObservableObject {
         @Published var tmpImg: UIImage?
         @Published var comparedUrl: URL?
         
-        //        private let textureQueue = DispatchQueue(label: "textureQueue", attributes: .concurrent)
+                private let textureQueue = DispatchQueue(label: "textureQueue", attributes: .concurrent)
         private var textureBuffer = [MTLTexture]()
         private let semaphore = DispatchSemaphore(value: 0)
         
@@ -390,10 +390,11 @@ class VideoCompare: ObservableObject {
                         self.debugFrameDataToJson(counter: counter)
 #endif
                         
-                        
-                        self.textureBuffer.append(outTexture)
-                        self.semaphore.signal()
-                        print("productor send-------->>")
+                        self.textureQueue.async(flags: .barrier) {
+                                self.textureBuffer.append(outTexture)
+                                self.semaphore.signal()
+                                print("productor send-------->>")
+                        }
                         
                         try self.textureToImg(outTexture: outTexture)
                         return true
