@@ -851,71 +851,67 @@ extension  VideoCompare{
                 
                 let outputSize = CGSize(width: firstTexture.width, height: firstTexture.height)
                 
-                do {
-                        let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
-                        
-                        let outputSettings: [String: Any] = [
-                                AVVideoCodecKey: AVVideoCodecType.h264,
-                                AVVideoWidthKey: outputSize.width,
-                                AVVideoHeightKey: outputSize.height
-                        ]
-                        
-                        let writerInput = AVAssetWriterInput(mediaType: .video, outputSettings: outputSettings)
-                        let sourceBufferAttributes: [String: Any] = [
-                                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-                                kCVPixelBufferWidthKey as String: outputSize.width,
-                                kCVPixelBufferHeightKey as String: outputSize.height
-                        ]
-                        
-                        let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: writerInput,
-                                                                           sourcePixelBufferAttributes: sourceBufferAttributes)
-                        
-                        guard writer.canAdd(writerInput) else {
-                                throw NSError(domain: "VideoGeneration", code: 1, userInfo: [NSLocalizedDescriptionKey: "Cannot add input to writer."])
-                        }
-                        
-                        writer.add(writerInput)
-                        
-                        writer.startWriting()
-                        writer.startSession(atSourceTime: .zero)
-                        
-                        var frameTime = CMTime.zero
-                        
-                        DispatchQueue.global(qos: .userInitiated).async {
-                                for texture in self.textureBuffer {
-                                        autoreleasepool {
-                                                guard let pixelBuffer = self.pixelBufferFromTexture(texture: texture) else {
-                                                        writer.cancelWriting()
-                                                        self.logProcessInfo("Failed to create pixel buffer from texture.")
-                                                        return
-                                                }
-                                                
-                                                while !writerInput.isReadyForMoreMediaData {
-                                                        Thread.sleep(forTimeInterval: 0.02)
-                                                }
-                                                
-                                                adaptor.append(pixelBuffer, withPresentationTime: frameTime)
-                                                frameTime = frameTime + frameDuration
-                                        }
+                
+                let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
+                
+                let outputSettings: [String: Any] = [
+                        AVVideoCodecKey: AVVideoCodecType.h264,
+                        AVVideoWidthKey: outputSize.width,
+                        AVVideoHeightKey: outputSize.height
+                ]
+                
+                let writerInput = AVAssetWriterInput(mediaType: .video, outputSettings: outputSettings)
+                let sourceBufferAttributes: [String: Any] = [
+                        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                        kCVPixelBufferWidthKey as String: outputSize.width,
+                        kCVPixelBufferHeightKey as String: outputSize.height
+                ]
+                
+                let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: writerInput,
+                                                                   sourcePixelBufferAttributes: sourceBufferAttributes)
+                
+                guard writer.canAdd(writerInput) else {
+                        throw NSError(domain: "VideoGeneration", code: 1, userInfo: [NSLocalizedDescriptionKey: "Cannot add input to writer."])
+                }
+                
+                writer.add(writerInput)
+                
+                writer.startWriting()
+                writer.startSession(atSourceTime: .zero)
+                
+                var frameTime = CMTime.zero
+                
+                for texture in self.textureBuffer {
+                        autoreleasepool {
+                                guard let pixelBuffer = self.pixelBufferFromTexture(texture: texture) else {
+                                        writer.cancelWriting()
+                                        self.logProcessInfo("Failed to create pixel buffer from texture.")
+                                        return
                                 }
                                 
-                                writerInput.markAsFinished()
-                                writer.finishWriting {
-                                        DispatchQueue.main.async {
-                                                if writer.status == .completed {
-                                                        self.logProcessInfo("Video successfully created.")
-                                                        self.comparedUrl = outputURL
-                                                } else if let error = writer.error {
-                                                        self.logProcessInfo("Failed to write video: \(error.localizedDescription)")
-                                                } else {
-                                                        self.logProcessInfo("Unknown error occurred while writing video.")
-                                                }
-                                        }
+                                while !writerInput.isReadyForMoreMediaData {
+                                        Thread.sleep(forTimeInterval: 0.02)
+                                }
+                                
+                                adaptor.append(pixelBuffer, withPresentationTime: frameTime)
+                                frameTime = frameTime + frameDuration
+                        }
+                }
+                
+                writerInput.markAsFinished()
+                writer.finishWriting {
+                        DispatchQueue.main.async {
+                                if writer.status == .completed {
+                                        self.logProcessInfo("Video successfully created.")
+                                        self.comparedUrl = outputURL
+                                } else if let error = writer.error {
+                                        self.logProcessInfo("Failed to write video: \(error.localizedDescription)")
+                                } else {
+                                        self.logProcessInfo("Unknown error occurred while writing video.")
                                 }
                         }
-                } catch {
-                        throw error
                 }
+                
         }
         
         private func pixelBufferFromTexture(texture: MTLTexture) -> CVPixelBuffer? {

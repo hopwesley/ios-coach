@@ -161,31 +161,28 @@ struct CompareView: View {
         }
 }
 
-#Preview {
-        CompareView()
-}
 
 struct FullScreenVideoView: View {
-    var url: URL
-    @Environment(\.presentationMode) var presentationMode
-    @State private var player: AVPlayer // 使用状态变量来管理播放器
-
-    init(url: URL) {
-        self.url = url
-        _player = State(initialValue: AVPlayer(url: url)) // 初始化播放器并设置视频URL
-    }
-
-    var body: some View {
-        VideoPlayer(player: player)
-            .onAppear {
-                player.play() // 视图出现时开始播放
-            }
-            .onDisappear {
-                player.pause() // 视图消失时暂停播放，避免在后台继续播放
-            }
-            .edgesIgnoringSafeArea(.all)
-            .onTapGesture {
-                presentationMode.wrappedValue.dismiss() // 点击后退出全屏
-            }
-    }
+        var url: URL
+        @Environment(\.presentationMode) var presentationMode
+        @State private var player: AVPlayer // 使用状态变量来管理播放器
+        
+        init(url: URL) {
+                self.url = url
+                _player = State(initialValue: AVPlayer(url: url)) // 初始化播放器并设置视频URL
+        }
+        
+        var body: some View {
+                VideoPlayer(player: player)
+                        .onAppear {
+                                player.play() // 视图出现时开始播放
+                        }
+                        .onDisappear {
+                                player.pause() // 视图消失时暂停播放，避免在后台继续播放
+                        }
+                        .edgesIgnoringSafeArea(.all)
+                        .onTapGesture {
+                                presentationMode.wrappedValue.dismiss() // 点击后退出全屏
+                        }
+        }
 }
