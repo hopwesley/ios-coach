@@ -609,11 +609,13 @@ kernel void overlayKernel(
         float gm = gradientMagnitude[idx];
         float grayValue = adjustedFrame[idx];
         
-        float4 resultColor = float4((1-gm) * grayValue + gm * heatMapColor.rgb, 1.0); // Composite the color
+        float4 resultColor = float4((1-gm) * grayValue + gm * heatMapColor.rgb, 1.0);
         
-        uint flippedY = height - 1 - gid.y;
-        uint2 flippedGID = uint2(gid.x, flippedY);
-        outTexture.write(resultColor, flippedGID);
+        //        uint flippedY = height - 1 - gid.y;
+        //        uint2 flippedGID = uint2(gid.x, flippedY);
+        //        outTexture.write(resultColor, flippedGID);
+        
+        outTexture.write(resultColor, gid);
 }
 
 kernel void overlayKernel2(
@@ -623,6 +625,7 @@ kernel void overlayKernel2(
                            constant uint& width [[buffer(2)]],
                            constant uint& height [[buffer(3)]],
                            device float* gradientMagnitude [[buffer(4)]],
+                           device float4* resultBuffer [[buffer(5)]],
                            uint2 gid [[thread_position_in_grid]])
 {
         if (gid.x >= width || gid.y >= height) return;
@@ -634,14 +637,9 @@ kernel void overlayKernel2(
         float gm = gradientMagnitude[idx];
         float grayValue = adjustedFrame[idx];
         
-        float4 resultColor = float4(
-                                    (1.0 - gm) * grayValue + gm * heatMapColor.b,  // B channel
-                                    (1.0 - gm) * grayValue + gm * heatMapColor.g,  // G channel
-                                    (1.0 - gm) * grayValue + gm * heatMapColor.r,  // R channel
-                                    1.0  // Alpha channel
-                                    );
-        // Write to texture with vertical flip
-        uint flippedY = height - 1 - gid.y; // Compute the flipped y-coordinate
-        uint2 flippedGID = uint2(gid.x, flippedY);
-        outTexture.write(resultColor, flippedGID);
-}
+        float4 resultColor = float4((1-gm) * grayValue + gm * heatMapColor.rgb, 1.0);
+        
+        resultBuffer[idx] = resultColor;
+        
+        outTexture.write(resultColor, gid);
+} 

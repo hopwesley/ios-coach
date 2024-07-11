@@ -17,7 +17,7 @@ class VideoCompare: ObservableObject {
         @Published var tmpImg: UIImage?
         @Published var comparedUrl: URL?
         
-                private let textureQueue = DispatchQueue(label: "textureQueue", attributes: .concurrent)
+        private let textureQueue = DispatchQueue(label: "textureQueue", attributes: .concurrent)
         private var textureBuffer = [MTLTexture]()
         private let semaphore = DispatchSemaphore(value: 0)
         
@@ -62,6 +62,10 @@ class VideoCompare: ObservableObject {
         var descriptorPipe: MTLComputePipelineState!
         var descriptorBufferB:[MTLBuffer?]=[]
         var descriptorBufferA:[MTLBuffer?]=[]
+#endif
+#if CompareJsonData
+        var overlayImgBuff: MTLBuffer?
+        
 #endif
         
         var grayBufferPreA:MTLBuffer?
@@ -136,8 +140,13 @@ class VideoCompare: ObservableObject {
                 maxMinPipe =  try device.makeComputePipelineState(function: minMaxFun)
                 percentilePipe =  try device.makeComputePipelineState(function: percentileFun)
                 adjustMapPipe  =  try device.makeComputePipelineState(function: adjustFun)
-                overlayMapPipe =  try device.makeComputePipelineState(function: overlayFun)
                 
+#if CompareJsonData
+                let overlayFun2  =  library.makeFunction(name: "overlayKernel2")
+                overlayMapPipe =  try device.makeComputePipelineState(function: overlayFun2!)
+#else
+                overlayMapPipe =  try device.makeComputePipelineState(function: overlayFun)
+#endif
                 avgGradientOfBlockA = Array(repeating: nil, count: 3)
                 avgGradientOfBlockB = Array(repeating: nil, count: 3)
                 descriptorThreadGrpNo = Array(repeating: nil, count: 3)
@@ -150,26 +159,6 @@ class VideoCompare: ObservableObject {
                 descriptorBufferA = Array(repeating: nil, count: 3)
                 descriptorBufferB = Array(repeating: nil, count: 3)
 #endif
-        }
-        
-        private func prepareVideoParam() async throws{
-                guard let videoTrack = try await self.assetA.loadTracks(withMediaType: .video).first else {
-                        throw ASError.noValidVideoTrack
-                }
-                
-                let videoSize = try await videoTrack.load(.naturalSize)
-                self.videoWidth = Int(videoSize.width)
-                self.videoHeight = Int(videoSize.height)
-                self.pixelSize = self.videoWidth * self.videoHeight
-                
-                self.textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-                        pixelFormat: .rgba8Unorm,
-                        width: self.videoWidth,
-                        height: self.videoHeight,
-                        mipmapped: false
-                )
-                textureDescriptor.usage = [.shaderRead, .shaderWrite]
-                
         }
         
         private func prepareFrameBuffer() throws{
@@ -222,6 +211,13 @@ class VideoCompare: ObservableObject {
                 
                 self.numGroupsMaxMin = MTLSize(width: (self.pixelSize + threadGroupSizeForMaxMin - 1) / threadGroupSizeForMaxMin, height: 1, depth: 1)
                 self.numGrpPercentile = MTLSize(width: (self.pixelSize + threadGroupSizeForMaxMin - 1) / threadGroupSizeForMaxMin, height: 1, depth: 1)
+                
+#if CompareJsonData
+                guard let resultBuf = device.makeBuffer(length: self.pixelSize * MemoryLayout<Float>.stride * 4, options: .storageModeShared) else {
+                        throw ASError.gpuBufferErr
+                }
+                self.overlayImgBuff = resultBuf
+#endif
         }
         
         private func prepareBlockBuffer(level:Int) throws{
@@ -308,6 +304,46 @@ class VideoCompare: ObservableObject {
         }
         
         
+        //MARK: -- main cation
+        func CompareAction(videoA:URL,videoB:URL)async throws{
+                DispatchQueue.main.async {
+                        self.comparedUrl = nil
+                }
+                self.textureBuffer.removeAll()
+                self.assetA = AVAsset(url: videoA)
+                self.assetB = AVAsset(url: videoB)
+                
+                logProcessInfo("初始化GPU")
+                try initGpuDevice()
+                
+                try await self.prepareVideoParam()
+                Task{
+                        try  self.createVideoFromTextures()
+                }
+                try await self.parseVideoDiffToTexture()
+        }
+        
+        
+        private func prepareVideoParam() async throws{
+                guard let videoTrack = try await self.assetA.loadTracks(withMediaType: .video).first else {
+                        throw ASError.noValidVideoTrack
+                }
+                
+                let videoSize = try await videoTrack.load(.naturalSize)
+                self.videoWidth = Int(videoSize.width)
+                self.videoHeight = Int(videoSize.height)
+                self.pixelSize = self.videoWidth * self.videoHeight
+                
+                self.textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+                        //                        pixelFormat: .rgba8Unorm,
+                        pixelFormat: .bgra8Unorm,
+                        width: self.videoWidth,
+                        height: self.videoHeight,
+                        mipmapped: false
+                )
+                textureDescriptor.usage = [.shaderRead, .shaderWrite]
+                
+        }
         private func parseVideoDiffToTexture() async throws{
                 var counter = 0;
                 
@@ -393,35 +429,23 @@ class VideoCompare: ObservableObject {
                         self.textureQueue.async(flags: .barrier) {
                                 self.textureBuffer.append(outTexture)
                                 self.semaphore.signal()
-                                print("productor send-------->>")
+//                                print("productor send-------->>")
                         }
                         
-                        try self.textureToImg(outTexture: outTexture)
+                        self.textureToImg(outTexture: outTexture)
+#if CompareJsonData
+                        return false
+#else
                         return true
+#endif
                 }
                 
                 self.semaphore.signal()
                 
-                print("productor finish-------->>")
+//                print("productor finish-------->>")
         }
-        //MARK: -- main cation
-        func CompareAction(videoA:URL,videoB:URL)async throws{
-                DispatchQueue.main.async {
-                        self.comparedUrl = nil
-                }
-                self.textureBuffer.removeAll()
-                self.assetA = AVAsset(url: videoA)
-                self.assetB = AVAsset(url: videoB)
-                
-                logProcessInfo("初始化GPU")
-                try initGpuDevice()
-                try await self.prepareVideoParam()
-                Task{
-                        try  self.createVideoFromTextures()
-                }
-                try await self.parseVideoDiffToTexture()
-                //                try  self.TestCreateVideo()
-        }
+        
+        
         //MARK: -- gpu shader calll
         func pixelGradient(preFrame:MTLTexture, curFrame:MTLTexture, preFrameB:MTLTexture, curFrameB:MTLTexture,commandBuffer:MTLCommandBuffer) throws{
                 
@@ -683,6 +707,10 @@ class VideoCompare: ObservableObject {
                 coder.setBytes(&height, length: MemoryLayout<UInt>.size, index: 3)
                 coder.setBuffer(self.gradientMagnitude, offset: 0, index: 4)
                 
+#if CompareJsonData
+                coder.setBuffer(self.overlayImgBuff, offset: 0, index: 5)
+#endif
+                
                 coder.dispatchThreadgroups(pixelThreadGrpNo!, threadsPerThreadgroup: pixelThreadGrpSize)
                 coder.endEncoding()
         }
@@ -756,6 +784,9 @@ extension  VideoCompare{
         private func debugFrameDataToJson(counter:Int){
                 
                 
+                saveRawDataToFile(fileName: "gpu_gray_frameA_\(counter)_.json", buffer: grayBufferCurA!,
+                                  width: self.videoWidth, height: self.videoHeight,  type: UInt8.self)
+                
                 saveRawDataToFile(fileName: "gpu_gradient_magnitude_\(counter)_.json", buffer: gradientMagnitude!,
                                   width: self.videoWidth, height: self.videoHeight,  type: Float.self)
                 
@@ -802,57 +833,70 @@ extension  VideoCompare{
                 saveRawDataToFile(fileName: "gpu_adjust_map_\(counter)_.json", buffer: adjustMapBuffer!,
                                   width: self.videoWidth, height: self.videoHeight,  type: Float.self)
                 
-                
-        }
-        
-        func TestCreateVideo() throws {
-                guard let firstTexture = textureBuffer.first else {
-                        throw NSError(domain: "TestCreateVideo", code: 0, userInfo: [NSLocalizedDescriptionKey: "Texture buffer is empty."])
-                }
-                
-                try self.textureToImg(outTexture: firstTexture)
-                
-                guard let pixelBuffer = self.pixelBufferFromTexture(texture: firstTexture) else {
-                        self.logProcessInfo("Failed to create pixel buffer from texture.")
-                        return
-                }
-                
-                let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
-                let context = CIContext()
-                let colorSpace = CGColorSpaceCreateDeviceRGB()
-                if let cgImage = context.createCGImage(ciImage, from: ciImage.extent, format: .RGBA8, colorSpace: colorSpace) {
-                        let testImage = UIImage(cgImage: cgImage)
-                        DispatchQueue.main.async {
-                                self.tmpFrameImg2 = testImage
-                        }
-                }
+                _ = saveFloat4ToFile(fileName: "gpu_overlay_image_raw_\(counter)_.json", resultBuffer: self.overlayImgBuff,
+                                     videoWidth:self.videoWidth, videoHeight: self.videoHeight)
         }
         
 #endif
         
-        private func textureToImg(outTexture: MTLTexture?) throws {
-                guard let cgImage = try textureToCGImage(outTexture: outTexture) else { return }
+        private func textureToImg(outTexture: MTLTexture?)  {
+                guard let cgImage =  textureToCGImage(outTexture: outTexture) else { return }
                 DispatchQueue.main.async {
                         self.tmpFrameImg = UIImage(cgImage: cgImage)
                 }
         }
         
-        private func textureToCGImage(outTexture: MTLTexture?) throws -> CGImage? {
+        private func textureToCGImage(outTexture: MTLTexture?) -> CGImage? {
                 guard let texture = outTexture else { return nil }
-                let colorSpace = CGColorSpaceCreateDeviceRGB()  // 使用标准的 RGB 色彩空间
+                let width = texture.width
+                let height = texture.height
+                let pixelFormat = texture.pixelFormat
                 
-                let context = CIContext()
-                guard let ciImage = CIImage(mtlTexture: texture, options: nil) else { return nil }
+                assert(pixelFormat == .bgra8Unorm, "Expected .bgra8Unorm format for texture")
                 
-                // 直接创建 CGImage，无需额外的转换，因为 texture 默认为 BGRA
-                return context.createCGImage(ciImage, from: ciImage.extent, format: .RGBA8, colorSpace: colorSpace)
+                let bytesPerPixel = 4
+                let bytesPerRow = width * bytesPerPixel
+                let length = bytesPerRow * height
+                let colorSpace = CGColorSpaceCreateDeviceRGB()
+                
+                var rawData = [UInt8](repeating: 0, count: length)
+                
+                texture.getBytes(&rawData,
+                                 bytesPerRow: bytesPerRow,
+                                 from: MTLRegionMake2D(0, 0, width, height),
+                                 mipmapLevel: 0)
+                
+                let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue)
+                        .union(.byteOrder32Little)
+                
+                guard let dataProvider = CGDataProvider(data: NSData(bytes: &rawData, length: length)) else {
+                        return nil
+                }
+                
+                guard let cgImage = CGImage(width: width,
+                                            height: height,
+                                            bitsPerComponent: 8,
+                                            bitsPerPixel: 32,
+                                            bytesPerRow: bytesPerRow,
+                                            space: colorSpace,
+                                            bitmapInfo: bitmapInfo,
+                                            provider: dataProvider,
+                                            decode: nil,
+                                            shouldInterpolate: false,
+                                            intent: .defaultIntent) else {
+                        return nil
+                }
+                
+                return cgImage
         }
+        
+        
         
         func createVideoFromTextures() throws {
                 let frameDuration = CMTimeMake(value: 1, timescale: 30)
                 let outputURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("compare_result_\(Date().timeIntervalSince1970).mp4")
                 
-                let outputSize = CGSize(width:self.videoWidth, height: self.videoHeight)
+                let outputSize = CGSize(width: self.videoWidth, height: self.videoHeight)
                 
                 let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
                 
@@ -884,13 +928,11 @@ extension  VideoCompare{
                 var frameTime = CMTime.zero
                 while true {
                         semaphore.wait()
-                        print("consumer got1+++++++++++++>>")
                         if textureBuffer.isEmpty {
-                                print("consumer finish got1-+++++++++++++>>")
                                 break
                         }
                         let texture = self.textureBuffer.removeFirst()
-                        print("consumer consuming+++++++++++++>>")
+//                        print("consumer consuming+++++++++++++>>")
                         guard let pixelBuffer = self.pixelBufferFromTexture(texture: texture) else {
                                 writer.cancelWriting()
                                 self.logProcessInfo("Failed to create pixel buffer from texture.")
@@ -915,34 +957,38 @@ extension  VideoCompare{
                 }
         }
         
+        
         private func pixelBufferFromTexture(texture: MTLTexture) -> CVPixelBuffer? {
+                let width = texture.width
+                let height = texture.height
+                let pixelFormat = texture.pixelFormat
                 
-                let colorSpace = CGColorSpaceCreateDeviceRGB()  // 使用标准的 RGB 色彩空间
+                assert(pixelFormat == .bgra8Unorm, "Expected .rgba8Unorm format for texture")
                 
-                let contextCG = CIContext()
-                guard let ciImage = CIImage(mtlTexture: texture, options: nil) else { return nil }
+                let bytesPerPixel = 4
+                let bytesPerRow = width * bytesPerPixel
+                let length = bytesPerRow * height
                 
-                // 直接创建 CGImage，无需额外的转换，因为 texture 默认为 BGRA
-                guard let cgImage =  contextCG.createCGImage(ciImage, from: ciImage.extent, format: .RGBA8, colorSpace: colorSpace) else{
-                        return nil
-                }
-                let width = cgImage.width
-                let height = cgImage.height
+                var rawData = [UInt8](repeating: 0, count: length)
                 
-                // 设置像素缓冲区的属性
+                texture.getBytes(&rawData,
+                                 bytesPerRow: bytesPerRow,
+                                 from: MTLRegionMake2D(0, 0, width, height),
+                                 mipmapLevel: 0)
+                
                 let pixelBufferAttributes: [CFString: Any] = [
                         kCVPixelBufferCGImageCompatibilityKey: true,
                         kCVPixelBufferCGBitmapContextCompatibilityKey: true,
                         kCVPixelBufferWidthKey: width,
                         kCVPixelBufferHeightKey: height,
-                        kCVPixelBufferPixelFormatTypeKey: Int(kCVPixelFormatType_32ARGB)
+                        kCVPixelBufferPixelFormatTypeKey: Int(kCVPixelFormatType_32BGRA)  // Changed format
                 ]
                 
                 var pixelBuffer: CVPixelBuffer?
                 let status = CVPixelBufferCreate(kCFAllocatorDefault,
                                                  width,
                                                  height,
-                                                 kCVPixelFormatType_32ARGB,
+                                                 kCVPixelFormatType_32BGRA,  // Changed format
                                                  pixelBufferAttributes as CFDictionary,
                                                  &pixelBuffer)
                 
@@ -951,23 +997,11 @@ extension  VideoCompare{
                         return nil
                 }
                 
-                // 锁定pixelBuffer的基地址，准备数据传输
                 CVPixelBufferLockBaseAddress(pixelBuffer!, CVPixelBufferLockFlags(rawValue: 0))
                 let pixelData = CVPixelBufferGetBaseAddress(pixelBuffer!)
                 
-                // 创建一个与pixelBuffer兼容的CGContext
-                let context = CGContext(data: pixelData,
-                                        width: width,
-                                        height: height,
-                                        bitsPerComponent: 8,
-                                        bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer!),
-                                        space: CGColorSpaceCreateDeviceRGB(),
-                                        bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue)
+                memcpy(pixelData, &rawData, length)
                 
-                // 绘制CGImage到CGContext中，从而将图像数据传输到pixelBuffer
-                context?.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
-                
-                // 解锁pixelBuffer
                 CVPixelBufferUnlockBaseAddress(pixelBuffer!, CVPixelBufferLockFlags(rawValue: 0))
                 
                 return pixelBuffer

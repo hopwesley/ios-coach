@@ -19,8 +19,8 @@ let ThreadSizeForParallelSum = 32
 let threadGroupSizeForMaxMin = 256
 let phi = Float((1.0 + sqrt(5.0)) / 2.0)
 let Overlay_Param_Alpha = Float(0.75)
-let Overlay_Param_Beta_Low = Float(0.0)//0.2
-let Overlay_Param_Beta_high = Float(0.6)//0.8
+let Overlay_Param_Beta_Low = Float(0.2)
+let Overlay_Param_Beta_high = Float(0.8)
 let Overlay_Low_Perc = Float(1)
 let Overlay_High_Perc = Float(99)
 

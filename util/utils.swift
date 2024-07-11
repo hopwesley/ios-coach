@@ -361,3 +361,37 @@ func findMinMax(buffer: MTLBuffer, length: Int) -> (minVal: Float, maxVal: Float
         
         return (minVal, maxVal)
 }
+
+func getResultBufferContent(resultBuffer:MTLBuffer?,pixelSize:Int) -> [SIMD4<Float>]? {
+        guard let buffer = resultBuffer else { return nil }
+        let pointer = buffer.contents().bindMemory(to: SIMD4<Float>.self, capacity: pixelSize)
+        let bufferPointer = UnsafeBufferPointer(start: pointer, count: pixelSize)
+        return Array(bufferPointer)
+}
+
+func saveFloat4ToFile(fileName:String, resultBuffer:MTLBuffer?,videoWidth:Int, videoHeight:Int) -> [[[Float64]]]? {
+        let pixelSize = videoWidth*videoHeight
+        guard let resultContent = getResultBufferContent(resultBuffer: resultBuffer, pixelSize: pixelSize) else { return nil }
+        
+        var resultArray: [[[Float64]]] = Array(repeating: Array(repeating: Array(repeating: 0.0, count: 4), count: videoWidth), count: videoHeight)
+        
+        for y in 0..<videoHeight {
+                for x in 0..<videoWidth {
+                        let index = y * videoWidth + x
+                        let pixel = resultContent[index]
+                        resultArray[y][x][0] = Float64(pixel.x)
+                        resultArray[y][x][1] = Float64(pixel.y)
+                        resultArray[y][x][2] = Float64(pixel.z)
+                        resultArray[y][x][3] = Float64(pixel.w)
+                }
+        }
+        // 将二维数组转换为 JSON 数据
+        guard let jsonData = try? JSONEncoder().encode(resultArray) else {
+                print("Error encoding gray buffer to JSON")
+                return nil
+        }
+        
+        dataToTmpFile(fileName: fileName, jsonData: jsonData)
+        
+        return resultArray
+}
