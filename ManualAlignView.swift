@@ -2,6 +2,7 @@ import SwiftUI
 import AVFoundation
 import Combine
 
+let frameInterval = 0.1 // 每0.1秒一个关键帧
 struct ManualAlignView: View {
         var urlA: URL
         var urlB: URL
@@ -42,16 +43,16 @@ struct ManualAlignView: View {
                                                                 if index == selectedStartIndexA {
                                                                         Rectangle()
                                                                                 .fill(Color.green)
-                                                                                .frame(width: 100, height: 100)
+                                                                                .frame(width: 140, height: 220)
                                                                 } else if index == selectedEndIndexA {
                                                                         Rectangle()
                                                                                 .fill(Color.red)
-                                                                                .frame(width: 100, height: 100)
+                                                                                .frame(width: 140, height: 220)
                                                                 }
                                                                 Image(uiImage: thumbnailsA[index])
                                                                         .resizable()
                                                                         .aspectRatio(contentMode: .fit)
-                                                                        .frame(height: 100)
+                                                                        .frame(height: 200)
                                                                         .clipShape(RoundedRectangle(cornerRadius: 5))
                                                         }
                                                         .padding(5) // 添加内边距
@@ -69,20 +70,20 @@ struct ManualAlignView: View {
                         
                         
                         Text("Start Time A: \(startTimeA, specifier: "%.2f") seconds")
-                        Slider(value: $startTimeA, in: 0...videoLengthA, step: 0.01)
+                        Slider(value: $startTimeA, in: 0...videoLengthA, step: frameInterval)
                                 .onChange(of: startTimeA) { newValue in
                                         if startTimeA >= endTimeA {
-                                                startTimeA = endTimeA - 0.01
+                                                startTimeA = endTimeA - frameInterval
                                         }
                                         updateSelectedIndex(for: startTimeA, videoLength: videoLengthA, thumbnails: thumbnailsA, isStart: true, isA: true)
                                         scrollToSelectedIndex(selectedStartIndexA, isA: true)
                                 }
                         
                         Text("End Time A: \(endTimeA, specifier: "%.2f") seconds")
-                        Slider(value: $endTimeA, in: 0...videoLengthA, step: 0.01)
+                        Slider(value: $endTimeA, in: 0...videoLengthA, step: frameInterval)
                                 .onChange(of: endTimeA) { newValue in
                                         if endTimeA <= startTimeA {
-                                                endTimeA = startTimeA + 0.01
+                                                endTimeA = startTimeA + frameInterval
                                         }
                                         updateSelectedIndex(for: endTimeA, videoLength: videoLengthA, thumbnails: thumbnailsA, isStart: false, isA: true)
                                         scrollToSelectedIndex(selectedEndIndexA, isA: true)
@@ -99,16 +100,16 @@ struct ManualAlignView: View {
                                                                 if index == selectedStartIndexB {
                                                                         Rectangle()
                                                                                 .fill(Color.green)
-                                                                                .frame(width: 100, height: 100)
+                                                                                .frame(width: 140, height: 210)
                                                                 } else if index == selectedEndIndexB {
                                                                         Rectangle()
                                                                                 .fill(Color.red)
-                                                                                .frame(width: 100, height: 100)
+                                                                                .frame(width: 140, height: 210)
                                                                 }
                                                                 Image(uiImage: thumbnailsB[index])
                                                                         .resizable()
                                                                         .aspectRatio(contentMode: .fit)
-                                                                        .frame(height: 100)
+                                                                        .frame(height: 200)
                                                                         .clipShape(RoundedRectangle(cornerRadius: 5))
                                                         }
                                                         .padding(5) // 添加内边距
@@ -127,20 +128,20 @@ struct ManualAlignView: View {
                         
                         
                         Text("Start Time B: \(startTimeB, specifier: "%.2f") seconds")
-                        Slider(value: $startTimeB, in: 0...videoLengthB, step: 0.01)
+                        Slider(value: $startTimeB, in: 0...videoLengthB, step: frameInterval)
                                 .onChange(of: startTimeB) { newValue in
                                         if startTimeB >= endTimeB {
-                                                startTimeB = endTimeB - 0.01
+                                                startTimeB = endTimeB - frameInterval
                                         }
                                         updateSelectedIndex(for: startTimeB, videoLength: videoLengthB, thumbnails: thumbnailsB, isStart: true, isA: false)
                                         scrollToSelectedIndex(selectedStartIndexB, isA: false)
                                 }
                         
                         Text("End Time B: \(endTimeB, specifier: "%.2f") seconds")
-                        Slider(value: $endTimeB, in: 0...videoLengthB, step: 0.01)
+                        Slider(value: $endTimeB, in: 0...videoLengthB, step: frameInterval)
                                 .onChange(of: endTimeB) { newValue in
                                         if endTimeB <= startTimeB {
-                                                endTimeB = startTimeB + 0.01
+                                                endTimeB = startTimeB + frameInterval
                                         }
                                         updateSelectedIndex(for: endTimeB, videoLength: videoLengthB, thumbnails: thumbnailsB, isStart: false, isA: false)
                                         scrollToSelectedIndex(selectedEndIndexB, isA: false)
@@ -247,7 +248,7 @@ func extractThumbnails(from url: URL, completion: @escaping ([UIImage]) -> Void)
                 return
         }
         let durationSeconds = CMTimeGetSeconds(duration)
-        let step = durationSeconds / 10.0
+        let step = min(frameInterval, durationSeconds / Double(10)) // 确保至少有10个关键帧
         for i in stride(from: 0.0, to: durationSeconds, by: step) {
                 let time = CMTime(seconds: i, preferredTimescale: 600)
                 times.append(NSValue(time: time))
@@ -272,5 +273,4 @@ func extractThumbnails(from url: URL, completion: @escaping ([UIImage]) -> Void)
         dispatchGroup.notify(queue: .main) {
                 completion(images)
         }
-        
 }
