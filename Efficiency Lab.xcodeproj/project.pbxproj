@@ -14,6 +14,7 @@
 		693439682C37DA6B00B5FA62 /* compare.metal in Sources */ = {isa = PBXBuildFile; fileRef = 693439672C37DA6B00B5FA62 /* compare.metal */; };
 		69557C572C21465D004C63A3 /* videoPicker+extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69557C562C21465D004C63A3 /* videoPicker+extension.swift */; };
 		6968883C2C3CF56A0059BF6E /* constant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6968883B2C3CF56A0059BF6E /* constant.swift */; };
+		697FCB3F2C40ED9100A74EFB /* CoreVideo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 697FCB3E2C40ED9100A74EFB /* CoreVideo.framework */; };
 		698098D02C25954A00AAE9BC /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 698098CF2C25954A00AAE9BC /* ContentView.swift */; };
 		69B446E82C2903E700412367 /* gradient.metal in Sources */ = {isa = PBXBuildFile; fileRef = 69B446E72C2903E700412367 /* gradient.metal */; };
 		69B446EA2C29469100412367 /* VideoAlignment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69B446E92C29469100412367 /* VideoAlignment.swift */; };
@@ -33,6 +34,7 @@
 		693439672C37DA6B00B5FA62 /* compare.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = compare.metal; sourceTree = "<group>"; };
 		69557C562C21465D004C63A3 /* videoPicker+extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "videoPicker+extension.swift"; sourceTree = "<group>"; };
 		6968883B2C3CF56A0059BF6E /* constant.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = constant.swift; sourceTree = "<group>"; };
+		697FCB3E2C40ED9100A74EFB /* CoreVideo.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreVideo.framework; path = System/Library/Frameworks/CoreVideo.framework; sourceTree = SDKROOT; };
 		698098CF2C25954A00AAE9BC /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		69B446E72C2903E700412367 /* gradient.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = gradient.metal; sourceTree = "<group>"; };
 		69B446E92C29469100412367 /* VideoAlignment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoAlignment.swift; sourceTree = "<group>"; };
@@ -52,6 +54,7 @@
 			files = (
 				69D9CFA22C0C20490001AE0C /* Metal.framework in Frameworks */,
 				69D9CFA12C0C20490001AE0C /* MetalKit.framework in Frameworks */,
+				697FCB3F2C40ED9100A74EFB /* CoreVideo.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -104,6 +107,7 @@
 		69D9CF9E2C0C20490001AE0C /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				697FCB3E2C40ED9100A74EFB /* CoreVideo.framework */,
 				69D9CFA02C0C20490001AE0C /* Metal.framework */,
 				69D9CF9F2C0C20490001AE0C /* MetalKit.framework */,
 			);

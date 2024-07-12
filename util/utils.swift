@@ -7,6 +7,7 @@
 
 import MetalKit
 import simd
+import AVFoundation
 
 
 func textureToUIImage(texture: MTLTexture) -> UIImage? {
@@ -394,4 +395,33 @@ func saveFloat4ToFile(fileName:String, resultBuffer:MTLBuffer?,videoWidth:Int, v
         dataToTmpFile(fileName: fileName, jsonData: jsonData)
         
         return resultArray
+}
+
+func printVideoTransformProperties(videoURL: URL) async throws -> CGAffineTransform? {
+        let asset = AVAsset(url: videoURL)
+        guard let track = try await asset.loadTracks(withMediaType: .video).first else {
+                print("No valid video track found")
+                return nil
+        }
+        
+        let transform = try await track.load(.preferredTransform)
+        print("Preferred Transform: \(transform)")
+        return transform
+}
+
+func createImage(from pixelBuffer: CVPixelBuffer) -> UIImage? {
+        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+        let context = CIContext(options: nil) // 您可以根据需要配置这里的选项
+        
+        // 创建一个CGRect，其大小与CVPixelBuffer一致
+        let rect = CGRect(x: 0, y: 0, width: CVPixelBufferGetWidth(pixelBuffer), height: CVPixelBufferGetHeight(pixelBuffer))
+        
+        // 从CIImage创建一个CGImage
+        guard let cgImage = context.createCGImage(ciImage, from: rect) else {
+                print("Unable to create CGImage")
+                return nil
+        }
+        
+        // 使用CGImage创建一个UIImage
+        return UIImage(cgImage: cgImage)
 }

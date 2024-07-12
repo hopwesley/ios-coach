@@ -5,10 +5,12 @@
 //  Created by wesley on 2024/7/4.
 //
 import Foundation
+import CoreVideo
 
 import AVFoundation
 import CoreImage
 import UIKit
+
 
 class VideoCompare: ObservableObject {
         
@@ -100,8 +102,6 @@ class VideoCompare: ObservableObject {
         var percentileLowHighBuffer:MTLBuffer?
         var adjustMapBuffer:MTLBuffer?
         var tmpFrameImg:UIImage?
-        var tmpFrameImg2:UIImage?
-        
         
         //MARK: -- gpu init
         func initGpuDevice() throws{
@@ -304,8 +304,12 @@ class VideoCompare: ObservableObject {
         }
         
         
+        
+    
         //MARK: -- main cation
         func CompareAction(videoA:URL,videoB:URL)async throws{
+                //                try await printVideoTransformProperties(videoURL: videoA)
+                //                try await printVideoTransformProperties(videoURL: videoB)
                 DispatchQueue.main.async {
                         self.comparedUrl = nil
                 }
@@ -429,10 +433,10 @@ class VideoCompare: ObservableObject {
                         self.textureQueue.async(flags: .barrier) {
                                 self.textureBuffer.append(outTexture)
                                 self.semaphore.signal()
-//                                print("productor send-------->>")
+                                //                                print("productor send-------->>")
                         }
                         
-                        self.textureToImg(outTexture: outTexture)
+                        //                        self.textureToImg(outTexture: outTexture)
 #if CompareJsonData
                         return false
 #else
@@ -442,7 +446,7 @@ class VideoCompare: ObservableObject {
                 
                 self.semaphore.signal()
                 
-//                print("productor finish-------->>")
+                //                print("productor finish-------->>")
         }
         
         
@@ -932,7 +936,7 @@ extension  VideoCompare{
                                 break
                         }
                         let texture = self.textureBuffer.removeFirst()
-//                        print("consumer consuming+++++++++++++>>")
+                        //                        print("consumer consuming+++++++++++++>>")
                         guard let pixelBuffer = self.pixelBufferFromTexture(texture: texture) else {
                                 writer.cancelWriting()
                                 self.logProcessInfo("Failed to create pixel buffer from texture.")
@@ -940,6 +944,9 @@ extension  VideoCompare{
                         }
                         adaptor.append(pixelBuffer, withPresentationTime: frameTime)
                         frameTime = frameTime + frameDuration
+                        DispatchQueue.main.async {
+                                self.tmpFrameImg = createImage(from: pixelBuffer)
+                        }
                 }
                 
                 writerInput.markAsFinished()
@@ -958,7 +965,7 @@ extension  VideoCompare{
         }
         
         
-        private func pixelBufferFromTexture(texture: MTLTexture) -> CVPixelBuffer? {
+        private func pixelBufferFromTexture2(texture: MTLTexture) -> CVPixelBuffer? {
                 let width = texture.width
                 let height = texture.height
                 let pixelFormat = texture.pixelFormat
@@ -970,11 +977,9 @@ extension  VideoCompare{
                 let length = bytesPerRow * height
                 
                 var rawData = [UInt8](repeating: 0, count: length)
+                let region = MTLRegionMake2D(0, 0, width, height)
+                texture.getBytes(&rawData, bytesPerRow: bytesPerRow, from: region, mipmapLevel: 0)
                 
-                texture.getBytes(&rawData,
-                                 bytesPerRow: bytesPerRow,
-                                 from: MTLRegionMake2D(0, 0, width, height),
-                                 mipmapLevel: 0)
                 
                 let pixelBufferAttributes: [CFString: Any] = [
                         kCVPixelBufferCGImageCompatibilityKey: true,
@@ -1006,4 +1011,55 @@ extension  VideoCompare{
                 
                 return pixelBuffer
         }
+        
+        
+        
+        
+        func pixelBufferFromTexture(texture: MTLTexture) -> CVPixelBuffer? {
+                
+                guard let image = self.textureToCGImage(outTexture: texture) else{
+                        return nil
+                }
+                Task{
+                        
+                        DispatchQueue.main.async {
+                                self.tmpFrameImg = UIImage(cgImage: image)
+                        }
+                }
+                let width = self.videoWidth
+                let height = self.videoHeight
+                let options: [String: Any] = [
+                        kCVPixelBufferCGImageCompatibilityKey as String: true,
+                        kCVPixelBufferCGBitmapContextCompatibilityKey as String: true,
+                        kCVPixelBufferWidthKey as String: width,
+                        kCVPixelBufferHeightKey as String: height,
+                        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32ARGB
+                ]
+                
+                var pixelBufferOut: CVPixelBuffer?
+                let status = CVPixelBufferCreate(kCFAllocatorDefault, width, height,
+                                                 kCVPixelFormatType_32ARGB, options as CFDictionary, &pixelBufferOut)
+                
+                if status != kCVReturnSuccess {
+                        print("Failed to create pixel buffer")
+                        return nil
+                }
+                
+                guard let pixelBuffer = pixelBufferOut else { return nil }
+                
+                CVPixelBufferLockBaseAddress(pixelBuffer, [])
+                let pixelData = CVPixelBufferGetBaseAddress(pixelBuffer)
+                
+                let rgbColorSpace = CGColorSpaceCreateDeviceRGB()
+                let context = CGContext(data: pixelData, width: width, height: height,
+                                        bitsPerComponent: 8, bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer),
+                                        space: rgbColorSpace, bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue)
+                
+                context?.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+                
+                CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
+                
+                return pixelBuffer
+        }
+        
 }
