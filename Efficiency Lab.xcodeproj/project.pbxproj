@@ -15,6 +15,7 @@
 		69557C572C21465D004C63A3 /* videoPicker+extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69557C562C21465D004C63A3 /* videoPicker+extension.swift */; };
 		6968883C2C3CF56A0059BF6E /* constant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6968883B2C3CF56A0059BF6E /* constant.swift */; };
 		697FCB3F2C40ED9100A74EFB /* CoreVideo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 697FCB3E2C40ED9100A74EFB /* CoreVideo.framework */; };
+		697FCB412C40FFB500A74EFB /* ManualAlignView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 697FCB402C40FFB500A74EFB /* ManualAlignView.swift */; };
 		698098D02C25954A00AAE9BC /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 698098CF2C25954A00AAE9BC /* ContentView.swift */; };
 		69B446E82C2903E700412367 /* gradient.metal in Sources */ = {isa = PBXBuildFile; fileRef = 69B446E72C2903E700412367 /* gradient.metal */; };
 		69B446EA2C29469100412367 /* VideoAlignment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69B446E92C29469100412367 /* VideoAlignment.swift */; };
@@ -35,6 +36,7 @@
 		69557C562C21465D004C63A3 /* videoPicker+extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "videoPicker+extension.swift"; sourceTree = "<group>"; };
 		6968883B2C3CF56A0059BF6E /* constant.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = constant.swift; sourceTree = "<group>"; };
 		697FCB3E2C40ED9100A74EFB /* CoreVideo.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreVideo.framework; path = System/Library/Frameworks/CoreVideo.framework; sourceTree = SDKROOT; };
+		697FCB402C40FFB500A74EFB /* ManualAlignView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManualAlignView.swift; sourceTree = "<group>"; };
 		698098CF2C25954A00AAE9BC /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		69B446E72C2903E700412367 /* gradient.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = gradient.metal; sourceTree = "<group>"; };
 		69B446E92C29469100412367 /* VideoAlignment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoAlignment.swift; sourceTree = "<group>"; };
@@ -82,6 +84,7 @@
 				69D9CF8C2C0C1FB90001AE0C /* SportsCoachApp.swift */,
 				698098CF2C25954A00AAE9BC /* ContentView.swift */,
 				69321BD62C365B5700C52A85 /* CompareView.swift */,
+				697FCB402C40FFB500A74EFB /* ManualAlignView.swift */,
 				69321BD42C365B1E00C52A85 /* VideoPickerView.swift */,
 				69D9CF8A2C0C1FB90001AE0C /* Products */,
 				69D9CF9E2C0C20490001AE0C /* Frameworks */,
@@ -205,6 +208,7 @@
 			files = (
 				693439682C37DA6B00B5FA62 /* compare.metal in Sources */,
 				69DC622D2C12F0C500F07E00 /* utils.swift in Sources */,
+				697FCB412C40FFB500A74EFB /* ManualAlignView.swift in Sources */,
 				6968883C2C3CF56A0059BF6E /* constant.swift in Sources */,
 				698098D02C25954A00AAE9BC /* ContentView.swift in Sources */,
 				69321BD72C365B5700C52A85 /* CompareView.swift in Sources */,

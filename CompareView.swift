@@ -17,6 +17,10 @@ struct CompareView: View {
         @State private var playerB: AVPlayer = AVPlayer()
         @State private var fullScreenVideoURL: URL? // 存储要全屏播放的视频URL
         
+        
+        @State private var showAlert = false
+        @State private var alertMessage = ""
+        
         var body: some View {
                 ZStack {
                         ScrollView {
@@ -68,12 +72,23 @@ struct CompareView: View {
                                                                 self.fullScreenVideoURL = comparedUrl
                                                                 self.showFullScreenVideo = true
                                                         }
+                                                Button(action: {
+                                                        saveVideoToAlbum(videoURL: comparedUrl)
+                                                }) {
+                                                        Text("保存视频")
+                                                                .frame(width: 160, height: 80)
+                                                                .background(Color.blue)
+                                                                .foregroundColor(.white)
+                                                                .cornerRadius(10)
+                                                }
                                         }
                                 }
                                 .padding(20) // Add padding around the entire content
                                 .background(Color.white) // Add a white background
                                 .cornerRadius(10) // Apply corner radius to the entire view
                                 .shadow(radius: 5) // Add shadow for better visibility
+                        } .alert(isPresented: $showAlert) {
+                                Alert(title: Text("保存视频"), message: Text(alertMessage), dismissButton: .default(Text("确定")))
                         }
                         
                         if isProcessing {
@@ -113,6 +128,7 @@ struct CompareView: View {
                         if showFullScreenVideo, let fullScreenVideoURL = fullScreenVideoURL {
                                 FullScreenVideoView(url: fullScreenVideoURL)
                         }
+                        
                 }
                 .disabled(isProcessing)
                 .onAppear {
@@ -159,30 +175,90 @@ struct CompareView: View {
                         }
                 }
         }
+        
+        func saveVideoToAlbum(videoURL: URL) {
+                PHPhotoLibrary.requestAuthorization { status in
+                        guard status == .authorized else {
+                                DispatchQueue.main.async {
+                                        self.alertMessage = "未授权访问相册。"
+                                        self.showAlert = true
+                                }
+                                return
+                        }
+                        PHPhotoLibrary.shared().performChanges({
+                                PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: videoURL)
+                        }) { success, error in
+                                DispatchQueue.main.async {
+                                        if success {
+                                                self.alertMessage = "视频已保存到相册。"
+                                        } else {
+                                                self.alertMessage = "视频保存失败: \(error?.localizedDescription ?? "未知错误")"
+                                        }
+                                        self.showAlert = true
+                                }
+                        }
+                }
+        }
 }
 
 
 struct FullScreenVideoView: View {
         var url: URL
         @Environment(\.presentationMode) var presentationMode
-        @State private var player: AVPlayer // 使用状态变量来管理播放器
+        @State private var player: AVPlayer
+        @State private var playerCurrentTime: Double = 0
+        @State private var playerDuration: Double = 0
         
         init(url: URL) {
                 self.url = url
-                _player = State(initialValue: AVPlayer(url: url)) // 初始化播放器并设置视频URL
+                _player = State(initialValue: AVPlayer(url: url))
         }
         
         var body: some View {
-                VideoPlayer(player: player)
-                        .onAppear {
-                                player.play() // 视图出现时开始播放
-                        }
-                        .onDisappear {
-                                player.pause() // 视图消失时暂停播放，避免在后台继续播放
-                        }
-                        .edgesIgnoringSafeArea(.all)
-                        .onTapGesture {
-                                presentationMode.wrappedValue.dismiss() // 点击后退出全屏
-                        }
+                VStack {
+                        VideoPlayer(player: player)
+                                .onAppear {
+                                        player.play()
+                                        addPeriodicTimeObserver()
+                                        Task{
+                                                await prepareVideoTime()
+                                        }
+                                }
+                                .onDisappear {
+                                        player.pause()
+                                }
+                                .edgesIgnoringSafeArea(.all)
+                                .onTapGesture {
+                                        presentationMode.wrappedValue.dismiss()
+                                }
+                        
+                        // Custom slider for video progress
+                        Slider(value: $playerCurrentTime, in: 0...playerDuration, onEditingChanged: sliderEditingChanged)
+                                .padding()
+                                .accentColor(.white)
+                }
+                .background(Color.black)
+        }
+        
+        private func addPeriodicTimeObserver() {
+                let interval = CMTime(seconds: 0.1, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
+                player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { time in
+                        playerCurrentTime = CMTimeGetSeconds(time)
+                }
+        }
+        
+        private func sliderEditingChanged(editingStarted: Bool) {
+                if editingStarted == false {
+                        let targetTime = CMTime(seconds: playerCurrentTime, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
+                        player.seek(to: targetTime)
+                }
+        }
+        
+        private func prepareVideoTime() async{
+                guard let item = player.currentItem,
+                      let duration = try? await item.asset.load(.duration) else{
+                        return
+                }
+                playerDuration = CMTimeGetSeconds(duration)
         }
 }

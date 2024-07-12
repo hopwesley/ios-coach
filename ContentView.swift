@@ -12,6 +12,7 @@ struct ContentView: View {
         @State private var maxSliderValue: Double = 100.0
         @State private var isProcessing = false
         @State private var showCompareView = false
+        @State private var showAlignView = false
         
         
         var body: some View {
@@ -57,7 +58,11 @@ struct ContentView: View {
                                                 .background(Color.gray)
                                                 
                                                 Button(action: {
+                                                        guard videoCtlA.videoURL != nil && videoCtlB.videoURL != nil else{
+                                                                return
+                                                        }
                                                         
+                                                        showAlignView = true
                                                 }) {
                                                         Text("手动对齐")
                                                 }
@@ -80,6 +85,10 @@ struct ContentView: View {
                                 }
                         }.navigationDestination(isPresented: $showCompareView) {
                                 CompareView(urlA: videoCtlA.cipheredVideoUrl, urlB: videoCtlB.cipheredVideoUrl, alignTime: processingTime)
+                        }.navigationDestination(isPresented: $showAlignView) {
+                                if let au = videoCtlA.videoURL, let bu = videoCtlB.videoURL{
+                                        ManualAlignView(urlA: au , urlB: bu)
+                                }
                         }
                 }
         }
@@ -145,7 +154,7 @@ struct ContentView: View {
                                         DispatchQueue.main.async {// 设置为true以显示CompareView
                                                 self.processingTime = executionTime
                                                 self.isProcessing = false
-                                                self.showCompareView = true 
+                                                self.showCompareView = true
                                         }
                                 } catch let err {
                                         DispatchQueue.main.async {
