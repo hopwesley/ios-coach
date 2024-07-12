@@ -23,16 +23,21 @@ struct ManualAlignView: View {
         @State private var selectedStartIndexB: Int = 0
         @State private var selectedEndIndexB: Int?
         
+        @State private var frameCountA: Int = 0
+        @State private var frameCountB: Int = 0
+        
         @State private var scrollViewProxyA: ScrollViewProxy?
         @State private var scrollViewProxyB: ScrollViewProxy?
         
+        @State private var showAlert = false
+        @State private var alertMessage = ""
         
         init(urlA: URL, urlB: URL) {
                 self.urlA = urlA
                 self.urlB = urlB
         }
         
-        var body: some View {
+        var body: some View {ScrollView{
                 VStack {
                         // Video A
                         ScrollView(.horizontal, showsIndicators: true) {
@@ -68,6 +73,7 @@ struct ManualAlignView: View {
                         }
                         .scrollIndicators(.visible)
                         
+                        Text("Frames in selection: \(frameCountA)")
                         
                         Text("Start Time A: \(startTimeA, specifier: "%.2f") seconds")
                         Slider(value: $startTimeA, in: 0...videoLengthA, step: frameInterval)
@@ -125,7 +131,7 @@ struct ManualAlignView: View {
                         }
                         .scrollIndicators(.visible)
                         
-                        
+                        Text("Frames in selection: \(frameCountB)")
                         
                         Text("Start Time B: \(startTimeB, specifier: "%.2f") seconds")
                         Slider(value: $startTimeB, in: 0...videoLengthB, step: frameInterval)
@@ -148,16 +154,25 @@ struct ManualAlignView: View {
                                 }
                         
                         Button("Save") {
-                                print("Video A - Start Time: \(startTimeA)s, End Time: \(endTimeA)s")
-                                print("Video B - Start Time: \(startTimeB)s, End Time: \(endTimeB)s")
-                                // Add your save logic here
+                                if frameCountA != frameCountB {
+                                        alertMessage = "对比度视频长度必须相同"
+                                        showAlert = true
+                                } else {
+                                        print("Video A - Start Time: \(startTimeA)s, End Time: \(endTimeA)s")
+                                        print("Video B - Start Time: \(startTimeB)s, End Time: \(endTimeB)s")
+                                        // Add your save logic here
+                                }
                         }
                         .padding()
                         .background(Color.blue)
                         .foregroundColor(.white)
                         .cornerRadius(10)
+                        .alert(isPresented: $showAlert) {
+                                Alert(title: Text("错误"), message: Text(alertMessage), dismissButton: .default(Text("确定")))
+                        }
                 }
                 .padding()
+        }
                 .onAppear {
                         Task {
                                 await loadVideoLength(for: urlA) { length in
@@ -167,6 +182,7 @@ struct ManualAlignView: View {
                                 await extractThumbnails(from: urlA) { images in
                                         thumbnailsA = images
                                         selectedEndIndexA = images.count - 1 // 设置红色为最后一帧
+                                        updateFrameCountA()
                                 }
                                 await loadVideoLength(for: urlB) { length in
                                         videoLengthB = length
@@ -175,6 +191,7 @@ struct ManualAlignView: View {
                                 await extractThumbnails(from: urlB) { images in
                                         thumbnailsB = images
                                         selectedEndIndexB = images.count - 1 // 设置红色为最后一帧
+                                        updateFrameCountB()
                                 }
                         }
                 }
@@ -188,15 +205,32 @@ struct ManualAlignView: View {
                         } else {
                                 selectedEndIndexA = index
                         }
+                        updateFrameCountA()
                 } else {
                         if isStart {
                                 selectedStartIndexB = index
                         } else {
                                 selectedEndIndexB = index
                         }
+                        updateFrameCountB()
                 }
         }
         
+        private func updateFrameCountA() {
+                if let endIndex = selectedEndIndexA {
+                        frameCountA = endIndex - selectedStartIndexA + 1
+                } else {
+                        frameCountA = 0
+                }
+        }
+        
+        private func updateFrameCountB() {
+                if let endIndex = selectedEndIndexB {
+                        frameCountB = endIndex - selectedStartIndexB + 1
+                } else {
+                        frameCountB = 0
+                }
+        }
         
         private func scrollToSelectedIndex(_ index: Int?, isA: Bool) {
                 guard let index = index else { return }
@@ -204,26 +238,6 @@ struct ManualAlignView: View {
                         proxy.scrollTo(index, anchor: .center)
                 } else if !isA, let proxy = scrollViewProxyB {
                         proxy.scrollTo(index, anchor: .center)
-                }
-        }
-        
-        private func thumbnailBackgroundA(index: Int) -> Color {
-                if index == selectedStartIndexA {
-                        return Color.green
-                } else if index == selectedEndIndexA {
-                        return Color.red
-                } else {
-                        return Color.clear
-                }
-        }
-        
-        private func thumbnailBackgroundB(index: Int) -> Color {
-                if index == selectedStartIndexB {
-                        return Color.green
-                } else if index == selectedEndIndexB {
-                        return Color.red
-                } else {
-                        return Color.clear
                 }
         }
         
