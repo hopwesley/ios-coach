@@ -49,6 +49,7 @@
 		69D9CFA02C0C20490001AE0C /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		69DC622C2C12F0C400F07E00 /* utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = utils.swift; sourceTree = "<group>"; };
 		69EFBBF72C42424000E6CBA4 /* FullScreenVideoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullScreenVideoView.swift; sourceTree = "<group>"; };
+		69EFBBF92C4245B900E6CBA4 /* Efficiency-Lab-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Efficiency-Lab-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -78,6 +79,7 @@
 		69D9CF802C0C1FB90001AE0C = {
 			isa = PBXGroup;
 			children = (
+				69EFBBF92C4245B900E6CBA4 /* Efficiency-Lab-Info.plist */,
 				69D9CF922C0C1FBB0001AE0C /* Assets.xcassets */,
 				69D9CF942C0C1FBB0001AE0C /* Preview Content */,
 				69EA2E3B2C242F6A00C60FA3 /* controller */,
@@ -359,9 +361,11 @@
 				DEVELOPMENT_TEAM = 2XYK8RBB6M;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Efficiency-Lab-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Efficiency Lab";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSCameraUsageDescription = "需要访问相机进行图像处理";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "访问麦克风以便录取视频";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "需要访问照片库进行图像处理";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -396,9 +400,11 @@
 				DEVELOPMENT_TEAM = 2XYK8RBB6M;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Efficiency-Lab-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Efficiency Lab";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSCameraUsageDescription = "需要访问相机进行图像处理";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "访问麦克风以便录取视频";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "需要访问照片库进行图像处理";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

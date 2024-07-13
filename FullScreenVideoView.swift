@@ -35,7 +35,6 @@ class VideoPlayerViewModel: ObservableObject {
                         guard !self.isEditingSlider else { return }
                         DispatchQueue.main.async {
                                 self.playerCurrentTime = CMTimeGetSeconds(time)
-                                print("playerCurrentTime time=>\(self.playerCurrentTime)")
                         }
                 }
         }
@@ -44,7 +43,6 @@ class VideoPlayerViewModel: ObservableObject {
                 isEditingSlider = editingStarted
                 if !editingStarted {
                         let targetTime = CMTime(seconds: playerCurrentTime, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
-                        print("target time=>\(targetTime)")
                         
                         // 暂停时间观察器
                         if let token = timeObserverToken {
@@ -70,7 +68,6 @@ class VideoPlayerViewModel: ObservableObject {
                 }
                 DispatchQueue.main.async {
                         self.playerDuration = CMTimeGetSeconds(duration)
-                        print("playerDuration time=>\(self.playerDuration)")
                 }
         }
 }
