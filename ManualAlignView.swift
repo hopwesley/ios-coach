@@ -151,7 +151,7 @@ struct ManualAlignView: View {
         }
         
         private var saveButton: some View {
-                Button("Save") {
+                Button("开始对比") {
                         if frameCountA != frameCountB {
                                 alertMessage = "对比度视频长度必须相同"
                                 showAlert = true
