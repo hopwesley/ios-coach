@@ -425,3 +425,140 @@ func createImage(from pixelBuffer: CVPixelBuffer) -> UIImage? {
         // 使用CGImage创建一个UIImage
         return UIImage(cgImage: cgImage)
 }
+
+
+func trimVideoByFrame(videoURL: URL, offset: Int, len: Int) async throws -> URL {
+        let asset = AVAsset(url: videoURL)
+        let outputURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(videoURL.lastPathComponent + "_trimmedVideo.mp4")
+        
+        try? FileManager.default.removeItem(at: outputURL)
+        
+        guard let videoTrack = try await asset.loadTracks(withMediaType: .video).first else {
+                throw ASError.cipherErr
+        }
+        
+        let frameRate = try await videoTrack.load(.nominalFrameRate)
+        let startTime = CMTime(value: CMTimeValue(offset), timescale: CMTimeScale(frameRate))
+        let duration = CMTime(value: CMTimeValue(len), timescale: CMTimeScale(frameRate))
+        
+        let composition = AVMutableComposition()
+        guard let compositionTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+                throw ASError.cipherErr
+        }
+        
+        let transform = try await videoTrack.load(.preferredTransform)
+        compositionTrack.preferredTransform = transform
+        
+        do {
+                try compositionTrack.insertTimeRange(CMTimeRange(start: startTime, duration: duration), of: videoTrack, at: .zero)
+                
+                let naturalSize = try await videoTrack.load(.naturalSize)
+                let transformedSize = naturalSize.applying(transform)
+                let renderSize = CGSize(width: abs(transformedSize.width), height: abs(transformedSize.height))
+                
+                let videoComposition = AVMutableVideoComposition()
+                videoComposition.renderSize = renderSize
+                videoComposition.frameDuration = CMTime(value: 1, timescale: Int32(frameRate))
+                
+                let instruction = AVMutableVideoCompositionInstruction()
+                instruction.timeRange = CMTimeRange(start: .zero, duration: duration)
+                
+                let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionTrack)
+                layerInstruction.setTransform(transform, at: .zero)
+                
+                instruction.layerInstructions = [layerInstruction]
+                videoComposition.instructions = [instruction]
+                
+                guard let exporter = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
+                        throw ASError.cipherErr
+                }
+                
+                exporter.outputURL = outputURL
+                exporter.outputFileType = .mp4
+                exporter.videoComposition = videoComposition
+                
+                return try await withCheckedThrowingContinuation { continuation in
+                        exporter.exportAsynchronously {
+                                switch exporter.status {
+                                case .completed:
+                                        continuation.resume(returning: outputURL)
+                                case .failed:
+                                        continuation.resume(throwing: exporter.error ?? NSError(domain: "Unknown error", code: -1, userInfo: nil))
+                                default:
+                                        break
+                                }
+                        }
+                }
+        } catch {
+                throw error
+        }
+}
+
+
+func trimVideoByTime(videoURL: URL, sTime: Double, eTime: Double) async throws -> URL {
+        let asset = AVAsset(url: videoURL)
+        let outputURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(videoURL.lastPathComponent + "_trimmedVideo2.mp4")
+        
+        try? FileManager.default.removeItem(at: outputURL)
+        
+        guard let videoTrack = try await asset.loadTracks(withMediaType: .video).first else {
+                throw ASError.cipherErr
+        }
+        
+        let composition = AVMutableComposition()
+        guard let compositionTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+                throw ASError.cipherErr
+        }
+        
+        let transform = try await videoTrack.load(.preferredTransform)
+        compositionTrack.preferredTransform = transform
+        
+        let frameRate = try await videoTrack.load(.nominalFrameRate)
+        let timescale: CMTimeScale = 600 // 使用常数值作为timescale
+        
+        let startTime = CMTime(seconds: sTime, preferredTimescale: timescale)
+        let endTime = CMTime(seconds: eTime, preferredTimescale: timescale)
+        
+        let duration = CMTimeSubtract(endTime, startTime)
+        let timeRange = CMTimeRange(start: startTime, duration: duration)
+        
+        try compositionTrack.insertTimeRange(timeRange, of: videoTrack, at: .zero)
+        
+        let naturalSize = try await videoTrack.load(.naturalSize)
+        let transformedSize = naturalSize.applying(transform)
+        let renderSize = CGSize(width: abs(transformedSize.width), height: abs(transformedSize.height))
+        
+        let videoComposition = AVMutableVideoComposition()
+        videoComposition.renderSize = renderSize
+        videoComposition.frameDuration = CMTime(value: 1, timescale: Int32(frameRate))
+        
+        let instruction = AVMutableVideoCompositionInstruction()
+        instruction.timeRange = CMTimeRange(start: .zero, duration: duration)
+        
+        let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionTrack)
+        layerInstruction.setTransform(transform, at: .zero)
+        
+        instruction.layerInstructions = [layerInstruction]
+        videoComposition.instructions = [instruction]
+        
+        guard let exporter = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
+                throw ASError.cipherErr
+        }
+        
+        exporter.outputURL = outputURL
+        exporter.outputFileType = .mp4
+        exporter.videoComposition = videoComposition
+        
+        return try await withCheckedThrowingContinuation { continuation in
+                exporter.exportAsynchronously {
+                        switch exporter.status {
+                        case .completed:
+                                continuation.resume(returning: outputURL)
+                        case .failed:
+                                continuation.resume(throwing: exporter.error ?? NSError(domain: "Unknown error", code: -1, userInfo: nil))
+                        default:
+                                break
+                        }
+                }
+        }
+}

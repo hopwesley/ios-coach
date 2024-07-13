@@ -382,86 +382,13 @@ class VideoAlignment: ObservableObject {
                 guard let videoURL = self.videoURL else {
                         throw ASError.cipherErr
                 }
-                
-                let asset = AVAsset(url: videoURL)
-                let outputURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(videoURL.lastPathComponent + "_trimmedVideo.mp4")
-                
-                try? FileManager.default.removeItem(at: outputURL)
-                
-                guard let videoTrack = try await asset.loadTracks(withMediaType: .video).first else {
-                        print("No valid video track found")
-                        return
-                }
-                
-                let frameRate = try await videoTrack.load(.nominalFrameRate)
-                let startTime = CMTime(value: CMTimeValue(offset), timescale: CMTimeScale(frameRate))
-                let duration = CMTime(value: CMTimeValue(len), timescale: CMTimeScale(frameRate))
-                
-                let composition = AVMutableComposition()
-                guard let compositionTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
-                        print("Failed to create composition track")
-                        return
-                }
-                
-                // 应用原始视频轨道的变换
-                let transform = try await videoTrack.load(.preferredTransform)
-                compositionTrack.preferredTransform = transform
-                
-                do {
-                        try compositionTrack.insertTimeRange(CMTimeRange(start: startTime, duration: duration), of: videoTrack, at: .zero)
-                        
-                        // 确保renderSize正确
-                        let naturalSize = try await videoTrack.load(.naturalSize)
-                        let transformedSize = naturalSize.applying(transform)
-                        let renderSize = CGSize(width: abs(transformedSize.width), height: abs(transformedSize.height))
-                        
-                        // 创建视频合成
-                        let videoComposition = AVMutableVideoComposition()
-                        videoComposition.renderSize = renderSize
-                        videoComposition.frameDuration = CMTime(value: 1, timescale: Int32(frameRate))
-                        
-                        let instruction = AVMutableVideoCompositionInstruction()
-                        instruction.timeRange = CMTimeRange(start: .zero, duration: duration)
-                        
-                        let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionTrack)
-                        layerInstruction.setTransform(transform, at: .zero)
-                        
-                        instruction.layerInstructions = [layerInstruction]
-                        videoComposition.instructions = [instruction]
-                        
-                        guard let exporter = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
-                                print("Failed to create exporter")
-                                return
-                        }
-                        
-                        exporter.outputURL = outputURL
-                        exporter.outputFileType = .mp4
-                        exporter.videoComposition = videoComposition
-                        
-                        try await withCheckedThrowingContinuation { continuation in
-                                exporter.exportAsynchronously {
-                                        switch exporter.status {
-                                        case .completed:
-                                                DispatchQueue.main.async {
-                                                        self.cipheredVideoUrl = outputURL
-                                                        print("Video trimmed successfully", outputURL.absoluteString)
-                                                }
-                                                continuation.resume()
-                                        case .failed:
-                                                continuation.resume(throwing: exporter.error ?? NSError(domain: "Unknown error", code: -1, userInfo: nil))
-                                        default:
-                                                break
-                                        }
-                                }
-                        }
-                } catch {
-                        print("Error during composition: \(error)")
+                let outputURL = try await trimVideoByFrame(videoURL:videoURL, offset:offset, len:len)
+                DispatchQueue.main.async {
+                        self.cipheredVideoUrl = outputURL
                 }
         }
         
 }
-
-
 
 func findBestAlignOffset(histoA: MTLBuffer, countA: Int, histoB: MTLBuffer, countB: Int,seqLen:Int) -> (Int, Int, Int)? {
         

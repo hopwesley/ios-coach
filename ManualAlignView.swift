@@ -3,9 +3,13 @@ import AVFoundation
 import Combine
 
 let frameInterval = 0.1 // 每0.1秒一个关键帧
+
 struct ManualAlignView: View {
         var urlA: URL
         var urlB: URL
+        
+        @State private var trimedUrlA: URL?
+        @State private var trimedUrlB: URL?
         
         @State private var startTimeA: Double = 0
         @State private var endTimeA: Double = 10
@@ -31,167 +35,159 @@ struct ManualAlignView: View {
         
         @State private var showAlert = false
         @State private var alertMessage = ""
+        @State private var isProcessing = false
+        @State private var showCompareView = false
         
         init(urlA: URL, urlB: URL) {
                 self.urlA = urlA
                 self.urlB = urlB
         }
         
-        var body: some View {ScrollView{
+        var body: some View {
+                NavigationStack {
+                        ZStack{
+                                VStack {
+                                        ScrollView {
+                                                VStack {
+                                                        // Video A
+                                                        videoThumbnailsView(thumbnails: $thumbnailsA, selectedStartIndex: $selectedStartIndexA, selectedEndIndex: $selectedEndIndexA, scrollViewProxy: $scrollViewProxyA)
+                                                        
+                                                        videoControlView(startTime: $startTimeA, endTime: $endTimeA, videoLength: videoLengthA, selectedStartIndex: $selectedStartIndexA, selectedEndIndex: $selectedEndIndexA, thumbnails: thumbnailsA, frameCount: $frameCountA, isA: true)
+                                                        
+                                                        Divider().padding()
+                                                        
+                                                        // Video B
+                                                        videoThumbnailsView(thumbnails: $thumbnailsB, selectedStartIndex: $selectedStartIndexB, selectedEndIndex: $selectedEndIndexB, scrollViewProxy: $scrollViewProxyB)
+                                                        
+                                                        videoControlView(startTime: $startTimeB, endTime: $endTimeB, videoLength: videoLengthB, selectedStartIndex: $selectedStartIndexB, selectedEndIndex: $selectedEndIndexB, thumbnails: thumbnailsB, frameCount: $frameCountB, isA: false)
+                                                        
+                                                        saveButton
+                                                }
+                                                .padding()
+                                        }
+                                        .allowsHitTesting(!isProcessing)
+                                        if isProcessing {
+                                                VStack {
+                                                        Text("正在处理，请稍候...")
+                                                                .padding()
+                                                                .background(Color.black.opacity(0.75))
+                                                                .cornerRadius(10)
+                                                                .foregroundColor(.white)
+                                                }
+                                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                                .background(Color.black.opacity(0.5).edgesIgnoringSafeArea(.all))
+                                        }
+                                }
+                                .onAppear {
+                                        Task {
+                                                await loadVideoData()
+                                        }
+                                }
+                        }.navigationDestination(isPresented: $showCompareView) {
+                                CompareView(urlA: trimedUrlA, urlB: trimedUrlB, alignTime:0)
+                        }
+                }
+        }
+        
+        private func videoThumbnailsView(thumbnails: Binding<[UIImage]>, selectedStartIndex: Binding<Int>, selectedEndIndex: Binding<Int?>, scrollViewProxy: Binding<ScrollViewProxy?>) -> some View {
+                ScrollView(.horizontal, showsIndicators: true) {
+                        ScrollViewReader { proxy in
+                                HStack {
+                                        ForEach(thumbnails.wrappedValue.indices, id: \.self) { index in
+                                                ZStack {
+                                                        if index == selectedStartIndex.wrappedValue {
+                                                                Rectangle()
+                                                                        .fill(Color.green)
+                                                                        .frame(width: 140, height: 220)
+                                                        } else if index == selectedEndIndex.wrappedValue {
+                                                                Rectangle()
+                                                                        .fill(Color.red)
+                                                                        .frame(width: 140, height: 220)
+                                                        }
+                                                        Image(uiImage: thumbnails.wrappedValue[index])
+                                                                .resizable()
+                                                                .aspectRatio(contentMode: .fit)
+                                                                .frame(height: 200)
+                                                                .clipShape(RoundedRectangle(cornerRadius: 5))
+                                                }
+                                                .padding(5)
+                                                .border(Color.black, width: 1)
+                                                .id(index)
+                                        }
+                                }
+                                .padding()
+                                .onAppear {
+                                        scrollViewProxy.wrappedValue = proxy
+                                }
+                        }
+                }
+                .scrollIndicators(.visible)
+        }
+        
+        private func videoControlView(startTime: Binding<Double>, endTime: Binding<Double>, videoLength: Double, selectedStartIndex: Binding<Int>, selectedEndIndex: Binding<Int?>, thumbnails: [UIImage], frameCount: Binding<Int>, isA: Bool) -> some View {
                 VStack {
-                        // Video A
-                        ScrollView(.horizontal, showsIndicators: true) {
-                                ScrollViewReader { proxy in
-                                        HStack {
-                                                ForEach(thumbnailsA.indices, id: \.self) { index in
-                                                        ZStack {
-                                                                if index == selectedStartIndexA {
-                                                                        Rectangle()
-                                                                                .fill(Color.green)
-                                                                                .frame(width: 140, height: 220)
-                                                                } else if index == selectedEndIndexA {
-                                                                        Rectangle()
-                                                                                .fill(Color.red)
-                                                                                .frame(width: 140, height: 220)
-                                                                }
-                                                                Image(uiImage: thumbnailsA[index])
-                                                                        .resizable()
-                                                                        .aspectRatio(contentMode: .fit)
-                                                                        .frame(height: 200)
-                                                                        .clipShape(RoundedRectangle(cornerRadius: 5))
-                                                        }
-                                                        .padding(5) // 添加内边距
-                                                        .border(Color.black, width: 1) // 添加边框
-                                                        .id(index) // 确保每个缩略图都有唯一的ID
-                                                }
-                                        }
-                                        .padding()
-                                        .onAppear {
-                                                scrollViewProxyA = proxy
-                                        }
-                                }
-                        }
-                        .scrollIndicators(.visible)
+                        Text("Frames in selection: \(frameCount.wrappedValue)")
                         
-                        Text("Frames in selection: \(frameCountA)")
-                        
-                        Text("Start Time A: \(startTimeA, specifier: "%.2f") seconds")
-                        Slider(value: $startTimeA, in: 0...videoLengthA, step: frameInterval)
-                                .onChange(of: startTimeA) { newValue in
-                                        if startTimeA >= endTimeA {
-                                                startTimeA = endTimeA - frameInterval
+                        Text("Start Time \(isA ? "A" : "B"): \(startTime.wrappedValue, specifier: "%.2f") seconds")
+                        Slider(value: startTime, in: 0...videoLength, step: frameInterval)
+                                .onChange(of: startTime.wrappedValue) { newValue in
+                                        if startTime.wrappedValue >= endTime.wrappedValue {
+                                                startTime.wrappedValue = endTime.wrappedValue - frameInterval
                                         }
-                                        updateSelectedIndex(for: startTimeA, videoLength: videoLengthA, thumbnails: thumbnailsA, isStart: true, isA: true)
-                                        scrollToSelectedIndex(selectedStartIndexA, isA: true)
+                                        updateSelectedIndex(for: startTime.wrappedValue, videoLength: videoLength, thumbnails: thumbnails, isStart: true, isA: isA)
+                                        scrollToSelectedIndex(selectedStartIndex.wrappedValue, isA: isA)
                                 }
                         
-                        Text("End Time A: \(endTimeA, specifier: "%.2f") seconds")
-                        Slider(value: $endTimeA, in: 0...videoLengthA, step: frameInterval)
-                                .onChange(of: endTimeA) { newValue in
-                                        if endTimeA <= startTimeA {
-                                                endTimeA = startTimeA + frameInterval
+                        Text("End Time \(isA ? "A" : "B"): \(endTime.wrappedValue, specifier: "%.2f") seconds")
+                        Slider(value: endTime, in: 0...videoLength, step: frameInterval)
+                                .onChange(of: endTime.wrappedValue) { newValue in
+                                        if endTime.wrappedValue <= startTime.wrappedValue {
+                                                endTime.wrappedValue = startTime.wrappedValue + frameInterval
                                         }
-                                        updateSelectedIndex(for: endTimeA, videoLength: videoLengthA, thumbnails: thumbnailsA, isStart: false, isA: true)
-                                        scrollToSelectedIndex(selectedEndIndexA, isA: true)
+                                        updateSelectedIndex(for: endTime.wrappedValue, videoLength: videoLength, thumbnails: thumbnails, isStart: false, isA: isA)
+                                        scrollToSelectedIndex(selectedEndIndex.wrappedValue, isA: isA)
                                 }
-                        
-                        Divider().padding()
-                        
-                        // Video B
-                        ScrollView(.horizontal, showsIndicators: true) {
-                                ScrollViewReader { proxy in
-                                        HStack {
-                                                ForEach(thumbnailsB.indices, id: \.self) { index in
-                                                        ZStack {
-                                                                if index == selectedStartIndexB {
-                                                                        Rectangle()
-                                                                                .fill(Color.green)
-                                                                                .frame(width: 140, height: 210)
-                                                                } else if index == selectedEndIndexB {
-                                                                        Rectangle()
-                                                                                .fill(Color.red)
-                                                                                .frame(width: 140, height: 210)
-                                                                }
-                                                                Image(uiImage: thumbnailsB[index])
-                                                                        .resizable()
-                                                                        .aspectRatio(contentMode: .fit)
-                                                                        .frame(height: 200)
-                                                                        .clipShape(RoundedRectangle(cornerRadius: 5))
-                                                        }
-                                                        .padding(5) // 添加内边距
-                                                        .border(Color.black, width: 1) // 添加边框
-                                                        .id(index) // 确保每个缩略图都有唯一的ID
-                                                }
-                                        }
-                                        .padding()
-                                        .onAppear {
-                                                scrollViewProxyB = proxy
-                                        }
-                                }
-                        }
-                        .scrollIndicators(.visible)
-                        
-                        Text("Frames in selection: \(frameCountB)")
-                        
-                        Text("Start Time B: \(startTimeB, specifier: "%.2f") seconds")
-                        Slider(value: $startTimeB, in: 0...videoLengthB, step: frameInterval)
-                                .onChange(of: startTimeB) { newValue in
-                                        if startTimeB >= endTimeB {
-                                                startTimeB = endTimeB - frameInterval
-                                        }
-                                        updateSelectedIndex(for: startTimeB, videoLength: videoLengthB, thumbnails: thumbnailsB, isStart: true, isA: false)
-                                        scrollToSelectedIndex(selectedStartIndexB, isA: false)
-                                }
-                        
-                        Text("End Time B: \(endTimeB, specifier: "%.2f") seconds")
-                        Slider(value: $endTimeB, in: 0...videoLengthB, step: frameInterval)
-                                .onChange(of: endTimeB) { newValue in
-                                        if endTimeB <= startTimeB {
-                                                endTimeB = startTimeB + frameInterval
-                                        }
-                                        updateSelectedIndex(for: endTimeB, videoLength: videoLengthB, thumbnails: thumbnailsB, isStart: false, isA: false)
-                                        scrollToSelectedIndex(selectedEndIndexB, isA: false)
-                                }
-                        
-                        Button("Save") {
-                                if frameCountA != frameCountB {
-                                        alertMessage = "对比度视频长度必须相同"
-                                        showAlert = true
-                                } else {
-                                        print("Video A - Start Time: \(startTimeA)s, End Time: \(endTimeA)s")
-                                        print("Video B - Start Time: \(startTimeB)s, End Time: \(endTimeB)s")
-                                        // Add your save logic here
-                                }
-                        }
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                        .alert(isPresented: $showAlert) {
-                                Alert(title: Text("错误"), message: Text(alertMessage), dismissButton: .default(Text("确定")))
+                }
+        }
+        
+        private var saveButton: some View {
+                Button("Save") {
+                        if frameCountA != frameCountB {
+                                alertMessage = "对比度视频长度必须相同"
+                                showAlert = true
+                        } else {
+                                prepareVideoToCompare()
                         }
                 }
                 .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(10)
+                .alert(isPresented: $showAlert) {
+                        Alert(title: Text("错误"), message: Text(alertMessage), dismissButton: .default(Text("确定")))
+                }
         }
-                .onAppear {
-                        Task {
-                                await loadVideoLength(for: urlA) { length in
-                                        videoLengthA = length
-                                        endTimeA = length
+        
+        private func prepareVideoToCompare(){
+                DispatchQueue.main.async {
+                        self.isProcessing = true
+                }
+                Task{
+                        do {
+                                async let trimedUrlA = trimVideoByTime(videoURL: urlA, sTime: startTimeA, eTime: endTimeA)
+                                async let trimedUrlB = trimVideoByTime(videoURL: urlB, sTime: startTimeB, eTime: endTimeB)
+                                
+                                let (resultA, resultB) = try await (trimedUrlA, trimedUrlB)
+                                DispatchQueue.main.async {
+                                        self.isProcessing = false
+                                        self.trimedUrlA = resultA
+                                        self.trimedUrlB = resultB
+                                        self.showCompareView = true
                                 }
-                                await extractThumbnails(from: urlA) { images in
-                                        thumbnailsA = images
-                                        selectedEndIndexA = images.count - 1 // 设置红色为最后一帧
-                                        updateFrameCountA()
-                                }
-                                await loadVideoLength(for: urlB) { length in
-                                        videoLengthB = length
-                                        endTimeB = length
-                                }
-                                await extractThumbnails(from: urlB) { images in
-                                        thumbnailsB = images
-                                        selectedEndIndexB = images.count - 1 // 设置红色为最后一帧
-                                        updateFrameCountB()
+                        } catch let err {
+                                DispatchQueue.main.async {
+                                        alertMessage = err.localizedDescription
+                                        showAlert = true
                                 }
                         }
                 }
@@ -238,6 +234,28 @@ struct ManualAlignView: View {
                         proxy.scrollTo(index, anchor: .center)
                 } else if !isA, let proxy = scrollViewProxyB {
                         proxy.scrollTo(index, anchor: .center)
+                }
+        }
+        
+        @MainActor
+        private func loadVideoData() async {
+                await loadVideoLength(for: urlA) { length in
+                        videoLengthA = length
+                        endTimeA = length
+                }
+                await extractThumbnails(from: urlA) { images in
+                        thumbnailsA = images
+                        selectedEndIndexA = images.count - 1 // 设置红色为最后一帧
+                        updateFrameCountA()
+                }
+                await loadVideoLength(for: urlB) { length in
+                        videoLengthB = length
+                        endTimeB = length
+                }
+                await extractThumbnails(from: urlB) { images in
+                        thumbnailsB = images
+                        selectedEndIndexB = images.count - 1 // 设置红色为最后一帧
+                        updateFrameCountB()
                 }
         }
         
