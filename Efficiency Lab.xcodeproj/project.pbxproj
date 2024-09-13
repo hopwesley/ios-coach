@@ -29,6 +29,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		692DAC632C47C3970090E318 /* MetalPerformanceShaders.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalPerformanceShaders.framework; path = System/Library/Frameworks/MetalPerformanceShaders.framework; sourceTree = SDKROOT; };
+		692DAC652C47C3C40090E318 /* MetalPerformanceShadersGraph.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalPerformanceShadersGraph.framework; path = System/Library/Frameworks/MetalPerformanceShadersGraph.framework; sourceTree = SDKROOT; };
 		69321BD02C3640CD00C52A85 /* VideoCompare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoCompare.swift; sourceTree = "<group>"; };
 		69321BD22C36586E00C52A85 /* videoTimeAlign.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = videoTimeAlign.metal; sourceTree = "<group>"; };
 		69321BD42C365B1E00C52A85 /* VideoPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPickerView.swift; sourceTree = "<group>"; };
@@ -115,6 +117,8 @@
 		69D9CF9E2C0C20490001AE0C /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				692DAC652C47C3C40090E318 /* MetalPerformanceShadersGraph.framework */,
+				692DAC632C47C3970090E318 /* MetalPerformanceShaders.framework */,
 				697FCB3E2C40ED9100A74EFB /* CoreVideo.framework */,
 				69D9CFA02C0C20490001AE0C /* Metal.framework */,
 				69D9CF9F2C0C20490001AE0C /* MetalKit.framework */,
